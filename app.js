@@ -17,12 +17,12 @@ import {
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_AUTH_DOMAIN",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_STORAGE_BUCKET",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyDRZgMvYRjpuFlsTyoLTZK_mNuvA7jg4HE",
+    authDomain: "obscura-9bb1a.firebaseapp.com",
+    projectId: "obscura-9bb1a",
+    storageBucket: "obscura-9bb1a.firebasestorage.app",
+    messagingSenderId: "1081657320125",
+    appId: "1:1081657320125:web:d97ca25751b1de71948dd4"
 };
 
 // Initialize Firebase
