@@ -1,181 +1,240 @@
-// Import Firebase SDK Modules
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-    getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, getDocs 
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    getAuth, 
+    signInAnonymously, 
+    onAuthStateChanged, 
+    signOut 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
+    updateDoc, 
+    deleteDoc, 
+    doc, 
+    onSnapshot 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ⚠️ PASTE YOUR CUSTOM FIREBASE CONFIG BLOCK HERE ⚠️
+// --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDRZgMvYRjpuFlsTyoLTZK_mNuvA7jg4HE",
-    authDomain: "obscura-9bb1a.firebaseapp.com",
-    projectId: "obscura-9bb1a",
-    storageBucket: "obscura-9bb1a.firebasestorage.app",
-    messagingSenderId: "1081657320125",
-    appId: "1:1081657320125:web:d97ca25751b1de71948dd4"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_AUTH_DOMAIN",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_STORAGE_BUCKET",
+    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
-// Initialize App and Firestore database references
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
-const inventoryCollection = collection(db, "spares");
 
-// Route protection check
-if (localStorage.getItem('isLoggedIn') !== 'true') {
-    window.location.href = 'index.html';
-}
-
-document.getElementById('logoutBtn').addEventListener('click', () => {
-    localStorage.removeItem('isLoggedIn');
-    window.location.href = 'index.html';
-});
-
-// Cache dynamic references
-let localInventoryCache = []; 
-
-const formTitle = document.getElementById('formTitle');
+// --- DOM ELEMENTS ---
 const spareForm = document.getElementById('spareForm');
-const editIdField = document.getElementById('editId');
-const spareNameField = document.getElementById('spareName');
-const spareQtyField = document.getElementById('spareQty');
-const spareBarcodeField = document.getElementById('spareBarcode');
+const formTitle = document.getElementById('formTitle');
+const spareNameInput = document.getElementById('spareName');
+const spareQtyInput = document.getElementById('spareQty');
+const spareBarcodeInput = document.getElementById('spareBarcode');
+const barcodePreview = document.getElementById('barcodePreview');
+const editIdInput = document.getElementById('editId');
 const saveBtn = document.getElementById('saveBtn');
 const cancelBtn = document.getElementById('cancelBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const printDbBtn = document.getElementById('printDbBtn');
 
-// Stream data in real-time from Cloud Firestore
-onSnapshot(inventoryCollection, (snapshot) => {
-    const tbody = document.getElementById('inventoryTableBody');
-    tbody.innerHTML = '';
-    
-    localInventoryCache = [];
-    let totalQuantity = 0;
+const inventoryTableBody = document.getElementById('inventoryTableBody');
+const totalUniqueEl = document.getElementById('totalUnique');
+const totalQtyEl = document.getElementById('totalQty');
+const scanFeedback = document.getElementById('scanFeedback');
 
-    if (snapshot.empty) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">No spares found in database.</td></tr>`;
+// --- AUTHENTICATION ---
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        initInventoryListener();
+    } else {
+        signInAnonymously(auth).catch((error) => {
+            console.error("Authentication error:", error);
+        });
     }
-
-    snapshot.forEach((documentSnapshot) => {
-        const item = documentSnapshot.data();
-        const id = documentSnapshot.id;
-        
-        // Push to local variable cache for scanner processing loops
-        localInventoryCache.push({ id, ...item });
-        totalQuantity += parseInt(item.qty);
-
-        const row = document.createElement('tr');
-        row.className = "hover:bg-gray-50";
-        row.innerHTML = `
-            <td class="p-4 font-medium text-gray-800">${item.name}</td>
-            <td class="p-4 text-gray-500 font-mono text-xs"><span class="bg-gray-200 px-2 py-1 rounded">${item.barcode}</span></td>
-            <td class="p-4 text-center font-bold ${item.qty <= 2 ? 'text-red-500' : 'text-gray-700'}">${item.qty}</td>
-            <td class="p-4 text-right">
-                <button data-id="${id}" class="edit-action text-blue-600 hover:text-blue-800 font-medium mr-3">Edit</button>
-                <button data-id="${id}" class="delete-action text-red-600 hover:text-red-800 font-medium">Delete</button>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-
-    document.getElementById('totalUnique').innerText = snapshot.size;
-    document.getElementById('totalQty').innerText = totalQuantity;
-    attachTableEventListeners();
 });
 
-// Event attachments inside Module scope
-function attachTableEventListeners() {
-    document.querySelectorAll('.edit-action').forEach(btn => {
-        btn.addEventListener('click', (e) => editItem(e.target.dataset.id));
+logoutBtn.addEventListener('click', () => {
+    signOut(auth).then(() => {
+        location.reload();
+    }).catch((error) => {
+        console.error("Logout error:", error);
     });
-    document.querySelectorAll('.delete-action').forEach(btn => {
-        btn.addEventListener('click', (e) => deleteItem(e.target.dataset.id));
+});
+
+// --- REAL-TIME FIRESTORE LISTENER ---
+function initInventoryListener() {
+    const q = collection(db, "spares");
+    
+    onSnapshot(q, (snapshot) => {
+        let totalUnique = snapshot.size;
+        let totalQty = 0;
+
+        inventoryTableBody.innerHTML = "";
+
+        if (totalUnique === 0) {
+            inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">No spares found in inventory.</td></tr>`;
+        }
+
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const id = docSnap.id;
+            const qty = Number(data.quantity) || 0;
+            totalQty += qty;
+
+            const row = document.createElement('tr');
+            row.className = "hover:bg-gray-50 transition-colors";
+            row.innerHTML = `
+                <td class="p-4 font-medium text-gray-800">${escapeHtml(data.name)}</td>
+                <td class="p-4 font-mono text-gray-600">${escapeHtml(data.barcode)}</td>
+                <td class="p-4 text-center font-semibold text-gray-700">${qty}</td>
+                <td class="p-4 text-right space-x-2">
+                    <button onclick="window.editSpare('${id}', '${escapeHtml(data.name, true)}', ${qty}, '${escapeHtml(data.barcode, true)}')" class="text-blue-600 hover:text-blue-800 font-medium text-xs bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded">Edit</button>
+                    <button onclick="window.deleteSpare('${id}')" class="text-red-600 hover:text-red-800 font-medium text-xs bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded">Delete</button>
+                </td>
+            `;
+            inventoryTableBody.appendChild(row);
+        });
+
+        totalUniqueEl.textContent = totalUnique;
+        totalQtyEl.textContent = totalQty;
+    }, (error) => {
+        console.error("Error fetching inventory: ", error);
+        inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500">Error loading inventory data.</td></tr>`;
     });
 }
 
-// Add or Update Entry
+// --- LIVE BARCODE GENERATOR PREVIEW ---
+spareBarcodeInput.addEventListener('input', (e) => {
+    const value = e.target.value.trim();
+    generateBarcodeSVG(value);
+});
+
+function generateBarcodeSVG(text) {
+    if (!text) {
+        barcodePreview.innerHTML = "";
+        return;
+    }
+    try {
+        JsBarcode("#barcodePreview", text, {
+            format: "CODE128",
+            lineColor: "#1e293b",
+            width: 1.5,
+            height: 40,
+            displayValue: true
+        });
+    } catch (e) {
+        // Fallback for invalid characters during typing
+        barcodePreview.innerHTML = "";
+    }
+}
+
+// --- FORM SUBMIT (CREATE & UPDATE) ---
 spareForm.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const name = spareNameField.value.trim();
-    const qty = parseInt(spareQtyField.value);
-    const barcode = spareBarcodeField.value.trim();
-    const currentId = editIdField.value;
+    const id = editIdInput.value;
+    const name = spareNameInput.value.trim();
+    const quantity = parseInt(spareQtyInput.value, 10);
+    const barcode = spareBarcodeInput.value.trim();
 
-    if (!currentId) {
-        // Double check uniqueness constraint across database barcodes
-        const duplicateCheck = localInventoryCache.some(item => item.barcode === barcode);
-        if (duplicateCheck) {
-            alert("This barcode tracking number already exists inside system!");
-            return;
+    try {
+        if (id) {
+            await updateDoc(doc(db, "spares", id), { name, quantity, barcode });
+            resetForm();
+        } else {
+            await addDoc(collection(db, "spares"), { name, quantity, barcode, createdAt: new Date() });
+            spareForm.reset();
+            barcodePreview.innerHTML = "";
+            // Automatically prompt print dialog when a new spare is successfully added
+            window.print();
         }
-        await addDoc(inventoryCollection, { name, qty, barcode });
-    } else {
-        // Run specific Document target path merge update
-        const docRef = doc(db, "spares", currentId);
-        await updateDoc(docRef, { name, qty, barcode });
+    } catch (error) {
+        console.error("Error saving document: ", error);
+        alert("Failed to save spare item.");
     }
+});
 
+// --- PRINT DATABASE BUTTON ---
+printDbBtn.addEventListener('click', () => {
+    window.print();
+});
+
+// --- GLOBAL ACTIONS ---
+window.editSpare = function(id, name, quantity, barcode) {
+    editIdInput.value = id;
+    spareNameInput.value = name;
+    spareQtyInput.value = quantity;
+    spareBarcodeInput.value = barcode;
+    generateBarcodeSVG(barcode);
+
+    formTitle.textContent = "Edit Spare";
+    saveBtn.textContent = "Update Spare";
+    saveBtn.className = "w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium";
+    cancelBtn.classList.remove('hidden');
+    spareNameInput.focus();
+};
+
+window.deleteSpare = async function(id) {
+    if (confirm("Are you sure you want to delete this spare item?")) {
+        try {
+            await deleteDoc(doc(db, "spares", id));
+        } catch (error) {
+            console.error("Error deleting document: ", error);
+            alert("Failed to delete item.");
+        }
+    }
+};
+
+cancelBtn.addEventListener('click', () => {
     resetForm();
 });
 
-function editItem(id) {
-    const target = localInventoryCache.find(item => item.id === id);
-    if (!target) return;
-
-    formTitle.innerText = "Edit Spare Part";
-    editIdField.value = id;
-    spareNameField.value = target.name;
-    spareQtyField.value = target.qty;
-    spareBarcodeField.value = target.barcode;
-    
-    saveBtn.innerText = "Update Spare";
-    cancelBtn.classList.remove('hidden');
-}
-
-async function deleteItem(id) {
-    if (confirm("Are you sure you want to permanently delete this camera spare?")) {
-        await deleteDoc(doc(db, "spares", id));
-    }
-}
-
-cancelBtn.addEventListener('click', resetForm);
-
 function resetForm() {
-    formTitle.innerText = "Add New Spare";
-    editIdField.value = "";
     spareForm.reset();
-    saveBtn.innerText = "Save Spare";
+    editIdInput.value = "";
+    barcodePreview.innerHTML = "";
+    formTitle.textContent = "Add New Spare";
+    saveBtn.textContent = "Save Spare";
+    saveBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium";
     cancelBtn.classList.add('hidden');
 }
 
-// Barcode Scanning Deduct logic connected directly to Cloud Firestore
-async function processScannedBarcode(decodedText) {
-    const feedback = document.getElementById('scanFeedback');
-    const matchedItem = localInventoryCache.find(item => item.barcode === decodedText);
-
-    if (matchedItem) {
-        if (matchedItem.qty > 0) {
-            const docRef = doc(db, "spares", matchedItem.id);
-            await updateDoc(docRef, {
-                qty: matchedItem.qty - 1
-            });
-            feedback.innerText = `✅ Found: ${matchedItem.name} (-1)`;
-            feedback.className = "text-center text-sm font-semibold mt-2 text-green-600";
-        } else {
-            feedback.innerText = `⚠️ ${matchedItem.name} is completely out of stock!`;
-            feedback.className = "text-center text-sm font-semibold mt-2 text-orange-500";
-        }
-    } else {
-        feedback.innerText = `❌ Unknown Barcode: "${decodedText}"`;
-        feedback.className = "text-center text-sm font-semibold mt-2 text-red-500";
-    }
-
-    setTimeout(() => {
-        feedback.innerText = "Scanning for next item...";
-        feedback.className = "text-center text-sm font-semibold mt-2 text-gray-500";
-    }, 3000);
+// --- BARCODE SCANNER INTEGRATION ---
+function onScanSuccess(decodedText) {
+    spareBarcodeInput.value = decodedText;
+    generateBarcodeSVG(decodedText);
+    scanFeedback.textContent = `Scanned successfully: ${decodedText}`;
+    scanFeedback.className = "text-center text-sm font-semibold mt-2 text-emerald-600";
+    spareQtyInput.focus();
 }
 
-// Mount HTML5 QR Engine Scanner
-const html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader", { fps: 10, qrbox: { width: 250, height: 120 } }, false
-);
-html5QrcodeScanner.render((text) => processScannedBarcode(text), (err) => {});
+function onScanFailure() {}
+
+try {
+    const html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader", 
+        { fps: 10, qrbox: { width: 250, height: 150 } },
+        false
+    );
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+} catch (e) {
+    console.warn("QR/Barcode Scanner failed to initialize:", e);
+    scanFeedback.textContent = "Camera initialization failed.";
+}
+
+// --- HELPER FUNCTION ---
+function escapeHtml(str) {
+    if (!str) return "";
+    return str.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
