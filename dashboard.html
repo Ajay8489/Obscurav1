@@ -6,13 +6,15 @@
     <title>Inventory Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- JsBarcode for generating barcodes -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 
     <script type="module" src="app.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
     <nav class="bg-slate-800 text-white p-4 flex justify-between items-center shadow-md">
-        <h1 class="text-xl font-bold">obscura Spare Dashboard </h1>
+        <h1 class="text-xl font-bold">obscura Spare Dashboard</h1>
         <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-sm font-semibold">Logout</button>
     </nav>
 
@@ -33,8 +35,17 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-600">Barcode / SKU</label>
-                        <input type="text" id="spareBarcode" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
+                        <input type="text" id="spareBarcode" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required placeholder="Type or scan barcode...">
                     </div>
+                    
+                    <!-- Barcode Live Generator Preview -->
+                    <div class="bg-gray-50 p-3 rounded border border-dashed border-gray-300 text-center">
+                        <label class="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">Barcode Preview</label>
+                        <div class="flex justify-center overflow-x-auto py-1">
+                            <svg id="barcodePreview"></svg>
+                        </div>
+                    </div>
+
                     <div class="flex gap-2">
                         <button type="submit" id="saveBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium">Save Spare</button>
                         <button type="button" id="cancelBtn" class="hidden w-full bg-gray-400 hover:bg-gray-500 text-white py-2 rounded font-medium">Cancel</button>
@@ -62,6 +73,12 @@
             </div>
 
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div class="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="font-bold text-gray-700">Inventory Database</h3>
+                    <button id="printDbBtn" class="bg-slate-700 hover:bg-slate-800 text-white text-sm px-3 py-1.5 rounded font-medium flex items-center gap-1.5 shadow-sm">
+                        🖨️ Print Database
+                    </button>
+                </div>
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-gray-100 text-gray-700 text-sm uppercase">
