@@ -59,7 +59,7 @@ logoutBtn.addEventListener('click', () => {
 
 // --- REAL-TIME FIRESTORE LISTENER ---
 function initInventoryListener() {
-  const q = collection(db, "spare");
+  const q = collection(db, "spares");
   onSnapshot(q, (snapshot) => {
     let totalUnique = snapshot.size;
     let totalQty = 0;
@@ -143,10 +143,10 @@ spareForm.addEventListener('submit', async (e) => {
 
   try {
     if (id) {
-      await updateDoc(doc(db, "spare", id), { name, quantity, barcode });
+      await updateDoc(doc(db, "spares", id), { name, quantity, barcode });
       resetForm();
     } else {
-      await addDoc(collection(db, "spare"), { name, quantity, barcode, createdAt: new Date() });
+      await addDoc(collection(db, "spares"), { name, quantity, barcode, createdAt: new Date() });
       spareForm.reset();
       barcodePreview.innerHTML = "";
     }
@@ -178,7 +178,7 @@ window.editSpare = function(id, name, quantity, barcode) {
 window.deleteSpare = async function(id) {
   if (confirm("Are you sure you want to delete this spare item?")) {
     try {
-      await deleteDoc(doc(db, "spare", id));
+      await deleteDoc(doc(db, "spares", id));
     } catch (error) {
       console.error("Error deleting document: ", error);
       alert("Failed to delete item.");
