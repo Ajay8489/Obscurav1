@@ -37,21 +37,26 @@ const scanFeedback = document.getElementById('scanFeedback');
 const generateBarcodeBtn = document.getElementById('generateBarcodeBtn'); 
 const printBarcodeBtn = document.getElementById('printBarcodeBtn'); 
 
-// --- AUTHENTICATION --- 
+// --- AUTHENTICATION & INITIALIZATION --- 
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    initInventoryListener(); 
+    console.log("Authenticated as:", user.uid);
   } else {
     signInAnonymously(auth).catch((error) => {
-      console.error("Authentication error:", error); 
+      console.error("Anonymous auth error:", error); 
     }); 
   } 
-}); 
+});
+
+// Start loading the inventory immediately regardless of auth wrapper lag
+initInventoryListener();
 
 if (logoutBtn) {
   logoutBtn.addEventListener('click', () => {
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('currentUser');
     signOut(auth).then(() => {
-      location.reload(); 
+      window.location.href = 'index.html'; 
     }).catch((error) => {
       console.error("Logout error:", error); 
     }); 
@@ -115,9 +120,9 @@ function initInventoryListener() {
     if (totalUniqueEl) totalUniqueEl.textContent = totalUnique; 
     if (totalQtyEl) totalQtyEl.textContent = totalQty; 
   }, (error) => {
-    console.error("Error fetching inventory: ", error); 
+    console.error("Error fetching inventory (Check Firestore Security Rules): ", error); 
     if (inventoryTableBody) {
-      inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500">Error loading inventory data.</td></tr>`; 
+      inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500">Permission Denied or Connection Error.</td></tr>`; 
     }
   }); 
 } 
