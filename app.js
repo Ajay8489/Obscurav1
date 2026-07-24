@@ -34,7 +34,6 @@ const totalUniqueEl = document.getElementById('totalUnique');
 const totalQtyEl = document.getElementById('totalQty'); 
 const scanFeedback = document.getElementById('scanFeedback'); 
 
-// New Action Triggers 
 const generateBarcodeBtn = document.getElementById('generateBarcodeBtn'); 
 const printBarcodeBtn = document.getElementById('printBarcodeBtn'); 
 
@@ -49,13 +48,15 @@ onAuthStateChanged(auth, (user) => {
   } 
 }); 
 
-logoutBtn.addEventListener('click', () => {
-  signOut(auth).then(() => {
-    location.reload(); 
-  }).catch((error) => {
-    console.error("Logout error:", error); 
+if (logoutBtn) {
+  logoutBtn.addEventListener('click', () => {
+    signOut(auth).then(() => {
+      location.reload(); 
+    }).catch((error) => {
+      console.error("Logout error:", error); 
+    }); 
   }); 
-}); 
+}
 
 // --- REAL-TIME FIRESTORE LISTENER --- 
 function initInventoryListener() {
@@ -63,11 +64,13 @@ function initInventoryListener() {
   onSnapshot(q, (snapshot) => {
     let totalUnique = snapshot.size; 
     let totalQty = 0; 
-    inventoryTableBody.innerHTML = ""; 
+    if (inventoryTableBody) {
+      inventoryTableBody.innerHTML = ""; 
 
-    if (totalUnique === 0) {
-      inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">No spares found in inventory.</td></tr>`; 
-    } 
+      if (totalUnique === 0) {
+        inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-400">No spares found in inventory.</td></tr>`; 
+      } 
+    }
 
     snapshot.forEach((docSnap) => {
       const data = docSnap.data(); 
@@ -80,7 +83,6 @@ function initInventoryListener() {
       const row = document.createElement('tr'); 
       row.className = "hover:bg-gray-50 transition-colors"; 
 
-      // Safe row template without broken string attributes
       row.innerHTML = ` 
         <td class="p-4 font-medium text-gray-800">${escapeHtml(rawName)}</td> 
         <td class="p-4 font-mono text-gray-600">${escapeHtml(rawBarcode)}</td> 
@@ -91,33 +93,45 @@ function initInventoryListener() {
         </td> 
       `; 
 
-      // Safely attach event listeners using native DOM targeting
-      row.querySelector('.edit-btn').addEventListener('click', () => {
-        window.editSpare(id, rawName, qty, rawBarcode);
-      });
+      const editBtn = row.querySelector('.edit-btn');
+      if (editBtn) {
+        editBtn.addEventListener('click', () => {
+          window.editSpare(id, rawName, qty, rawBarcode);
+        });
+      }
 
-      row.querySelector('.delete-btn').addEventListener('click', () => {
-        window.deleteSpare(id);
-      });
+      const deleteBtn = row.querySelector('.delete-btn');
+      if (deleteBtn) {
+        deleteBtn.addEventListener('click', () => {
+          window.deleteSpare(id);
+        });
+      }
 
-      inventoryTableBody.appendChild(row); 
+      if (inventoryTableBody) {
+        inventoryTableBody.appendChild(row); 
+      }
     }); 
 
-    totalUniqueEl.textContent = totalUnique; 
-    totalQtyEl.textContent = totalQty; 
+    if (totalUniqueEl) totalUniqueEl.textContent = totalUnique; 
+    if (totalQtyEl) totalQtyEl.textContent = totalQty; 
   }, (error) => {
     console.error("Error fetching inventory: ", error); 
-    inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500">Error loading inventory data.</td></tr>`; 
+    if (inventoryTableBody) {
+      inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500">Error loading inventory data.</td></tr>`; 
+    }
   }); 
 } 
 
 // --- LIVE BARCODE GENERATOR PREVIEW --- 
-spareBarcodeInput.addEventListener('input', (e) => {
-  const value = e.target.value.trim(); 
-  generateBarcodeSVG(value); 
-}); 
+if (spareBarcodeInput) {
+  spareBarcodeInput.addEventListener('input', (e) => {
+    const value = e.target.value.trim(); 
+    generateBarcodeSVG(value); 
+  }); 
+}
 
 function generateBarcodeSVG(text) {
+  if (!barcodePreview) return;
   if (!text) {
     barcodePreview.innerHTML = ""; 
     return; 
@@ -135,58 +149,68 @@ function generateBarcodeSVG(text) {
   } 
 } 
 
-// --- NEW: AUTO-GENERATE BARCODE LISTENER --- 
-generateBarcodeBtn.addEventListener('click', () => {
-  const randomSku = 'SKU-' + Math.floor(10000000 + Math.random() * 90000000); 
-  spareBarcodeInput.value = randomSku; 
-  generateBarcodeSVG(randomSku); 
-}); 
+// --- AUTO-GENERATE BARCODE LISTENER --- 
+if (generateBarcodeBtn) {
+  generateBarcodeBtn.addEventListener('click', () => {
+    const randomSku = 'SKU-' + Math.floor(10000000 + Math.random() * 90000000); 
+    if (spareBarcodeInput) spareBarcodeInput.value = randomSku; 
+    generateBarcodeSVG(randomSku); 
+  }); 
+}
 
-// --- NEW: PRINT SINGLE BARCODE LISTENER --- 
-printBarcodeBtn.addEventListener('click', () => {
-  window.print(); 
-}); 
+// --- PRINT SINGLE BARCODE LISTENER --- 
+if (printBarcodeBtn) {
+  printBarcodeBtn.addEventListener('click', () => {
+    window.print(); 
+  }); 
+}
 
 // --- FORM SUBMIT (CREATE & UPDATE) --- 
-spareForm.addEventListener('submit', async (e) => {
-  e.preventDefault(); 
-  const id = editIdInput.value; 
-  const name = spareNameInput.value.trim(); 
-  const quantity = parseInt(spareQtyInput.value, 10); 
-  const barcode = spareBarcodeInput.value.trim(); 
+if (spareForm) {
+  spareForm.addEventListener('submit', async (e) => {
+    e.preventDefault(); 
+    const id = editIdInput ? editIdInput.value : ''; 
+    const name = spareNameInput ? spareNameInput.value.trim() : ''; 
+    const quantity = spareQtyInput ? parseInt(spareQtyInput.value, 10) : 0; 
+    const barcode = spareBarcodeInput ? spareBarcodeInput.value.trim() : ''; 
 
-  try {
-    if (id) {
-      await updateDoc(doc(db, "spare", id), { name, quantity, barcode }); 
-      resetForm(); 
-    } else {
-      await addDoc(collection(db, "spare"), { name, quantity, barcode, createdAt: new Date() }); 
-      spareForm.reset(); 
-      barcodePreview.innerHTML = ""; 
+    try {
+      if (id) {
+        await updateDoc(doc(db, "spare", id), { name, quantity, barcode }); 
+        resetForm(); 
+      } else {
+        await addDoc(collection(db, "spare"), { name, quantity, barcode, createdAt: new Date() }); 
+        spareForm.reset(); 
+        if (barcodePreview) barcodePreview.innerHTML = ""; 
+      } 
+    } catch (error) {
+      console.error("Error saving document: ", error); 
+      alert("Failed to save spare item."); 
     } 
-  } catch (error) {
-    console.error("Error saving document: ", error); 
-    alert("Failed to save spare item."); 
-  } 
-}); 
+  }); 
+}
 
 // --- PRINT DATABASE BUTTON --- 
-printDbBtn.addEventListener('click', () => {
-  window.print(); 
-}); 
+if (printDbBtn) {
+  printDbBtn.addEventListener('click', () => {
+    window.print(); 
+  }); 
+}
 
 // --- GLOBAL ACTIONS --- 
 window.editSpare = function(id, name, quantity, barcode) {
-  editIdInput.value = id; 
-  spareNameInput.value = name; 
-  spareQtyInput.value = quantity; 
-  spareBarcodeInput.value = barcode; 
+  if (editIdInput) editIdInput.value = id; 
+  if (spareNameInput) spareNameInput.value = name; 
+  if (spareQtyInput) spareQtyInput.value = quantity; 
+  if (spareBarcodeInput) spareBarcodeInput.value = barcode; 
   generateBarcodeSVG(barcode); 
-  formTitle.textContent = "Edit Spare"; 
-  saveBtn.textContent = "Update Spare"; 
-  saveBtn.className = "w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium"; 
-  cancelBtn.classList.remove('hidden'); 
-  spareNameInput.focus(); 
+  if (formTitle) formTitle.textContent = "Edit Spare"; 
+  if (saveBtn) {
+    saveBtn.textContent = "Update Spare"; 
+    saveBtn.className = "w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium"; 
+  }
+  if (cancelBtn) cancelBtn.classList.remove('hidden'); 
+  if (spareNameInput) spareNameInput.focus(); 
 }; 
 
 window.deleteSpare = async function(id) {
@@ -200,27 +224,33 @@ window.deleteSpare = async function(id) {
   } 
 }; 
 
-cancelBtn.addEventListener('click', () => {
-  resetForm(); 
-}); 
+if (cancelBtn) {
+  cancelBtn.addEventListener('click', () => {
+    resetForm(); 
+  }); 
+}
 
 function resetForm() {
-  spareForm.reset(); 
-  editIdInput.value = ""; 
-  barcodePreview.innerHTML = ""; 
-  formTitle.textContent = "Add New Spare"; 
-  saveBtn.textContent = "Save Spare"; 
-  saveBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium"; 
-  cancelBtn.classList.add('hidden'); 
+  if (spareForm) spareForm.reset(); 
+  if (editIdInput) editIdInput.value = ""; 
+  if (barcodePreview) barcodePreview.innerHTML = ""; 
+  if (formTitle) formTitle.textContent = "Add New Spare"; 
+  if (saveBtn) {
+    saveBtn.textContent = "Save Spare"; 
+    saveBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium"; 
+  }
+  if (cancelBtn) cancelBtn.classList.add('hidden'); 
 } 
 
 // --- BARCODE SCANNER INTEGRATION --- 
 function onScanSuccess(decodedText) {
-  spareBarcodeInput.value = decodedText; 
+  if (spareBarcodeInput) spareBarcodeInput.value = decodedText; 
   generateBarcodeSVG(decodedText); 
-  scanFeedback.textContent = `Scanned successfully: ${decodedText}`; 
-  scanFeedback.className = "text-center text-sm font-semibold mt-2 text-emerald-600"; 
-  spareQtyInput.focus(); 
+  if (scanFeedback) {
+    scanFeedback.textContent = `Scanned successfully: ${decodedText}`; 
+    scanFeedback.className = "text-center text-sm font-semibold mt-2 text-emerald-600"; 
+  }
+  if (spareQtyInput) spareQtyInput.focus(); 
 } 
 
 function onScanFailure() {} 
@@ -230,7 +260,7 @@ try {
   html5QrcodeScanner.render(onScanSuccess, onScanFailure); 
 } catch (e) {
   console.warn("QR/Barcode Scanner failed to initialize:", e); 
-  scanFeedback.textContent = "Camera initialization failed."; 
+  if (scanFeedback) scanFeedback.textContent = "Camera initialization failed."; 
 } 
 
 // --- HELPER FUNCTION --- 
