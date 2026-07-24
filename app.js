@@ -32,7 +32,6 @@ const printDbBtn = document.getElementById('printDbBtn');
 const inventoryTableBody = document.getElementById('inventoryTableBody'); 
 const totalUniqueEl = document.getElementById('totalUnique'); 
 const totalQtyEl = document.getElementById('totalQty'); 
-const scanFeedback = document.getElementById('scanFeedback'); 
 
 const generateBarcodeBtn = document.getElementById('generateBarcodeBtn'); 
 const printBarcodeBtn = document.getElementById('printBarcodeBtn'); 
@@ -48,7 +47,7 @@ onAuthStateChanged(auth, (user) => {
   } 
 });
 
-// Start loading the inventory immediately regardless of auth wrapper lag
+// Load inventory immediately
 initInventoryListener();
 
 if (logoutBtn) {
@@ -120,9 +119,9 @@ function initInventoryListener() {
     if (totalUniqueEl) totalUniqueEl.textContent = totalUnique; 
     if (totalQtyEl) totalQtyEl.textContent = totalQty; 
   }, (error) => {
-    console.error("Error fetching inventory (Check Firestore Security Rules): ", error); 
+    console.error("Error fetching inventory: ", error); 
     if (inventoryTableBody) {
-      inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500">Permission Denied or Connection Error.</td></tr>`; 
+      inventoryTableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-red-500">Error loading inventory data.</td></tr>`; 
     }
   }); 
 } 
@@ -158,8 +157,10 @@ function generateBarcodeSVG(text) {
 if (generateBarcodeBtn) {
   generateBarcodeBtn.addEventListener('click', () => {
     const randomSku = 'SKU-' + Math.floor(10000000 + Math.random() * 90000000); 
-    if (spareBarcodeInput) spareBarcodeInput.value = randomSku; 
-    generateBarcodeSVG(randomSku); 
+    if (spareBarcodeInput) {
+      spareBarcodeInput.value = randomSku; 
+      spareBarcodeInput.dispatchEvent(new Event('input')); // Triggers preview update
+    }
   }); 
 }
 
@@ -245,27 +246,6 @@ function resetForm() {
     saveBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium"; 
   }
   if (cancelBtn) cancelBtn.classList.add('hidden'); 
-} 
-
-// --- BARCODE SCANNER INTEGRATION --- 
-function onScanSuccess(decodedText) {
-  if (spareBarcodeInput) spareBarcodeInput.value = decodedText; 
-  generateBarcodeSVG(decodedText); 
-  if (scanFeedback) {
-    scanFeedback.textContent = `Scanned successfully: ${decodedText}`; 
-    scanFeedback.className = "text-center text-sm font-semibold mt-2 text-emerald-600"; 
-  }
-  if (spareQtyInput) spareQtyInput.focus(); 
-} 
-
-function onScanFailure() {} 
-
-try {
-  const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 150 } }, false); 
-  html5QrcodeScanner.render(onScanSuccess, onScanFailure); 
-} catch (e) {
-  console.warn("QR/Barcode Scanner failed to initialize:", e); 
-  if (scanFeedback) scanFeedback.textContent = "Camera initialization failed."; 
 } 
 
 // --- HELPER FUNCTION --- 
