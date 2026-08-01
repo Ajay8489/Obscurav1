@@ -1,6 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">        
 <head>
+    <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventory Dashboard</title>
+  
+  <!-- Add this Auth Check Script -->
+  <script>
+    // Check if the user is authenticated
+    if (localStorage.getItem("isLoggedIn") !== "true") {
+      // If not logged in, immediately redirect to the login page
+      window.location.replace("index.html"); 
+    }
+  </script>
+
+  <!-- Rest of your head content -->
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <!-- ... -->
+</head>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Dashboard</title>
