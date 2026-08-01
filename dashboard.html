@@ -1,45 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <style>
-  /* Styling to ensure clean barcode printing */
-  @media print {
-    body * { visibility: hidden; }
-    #printableArea, #printableArea * { visibility: visible; }
-    #printableArea { position: absolute; left: 0; top: 0; width: 100%; display: flex; justify-content: center; align-items: center; }
-  }
-
-  /* --- Camera Animation Styles --- */
-  :root {
-    --bg-1: #0a0b0c;
-    --bg-2: #17181a;
-    --accent: #ff8a3d;
-    --accent-dim: #ff8a3d55;
-    --text: #c9ccd1;
-    --text-dim: #6b6f76;
-  }
-  
-  #animation-intro {
-    position: fixed; inset: 0; z-index: 50;
-    background: radial-gradient(ellipse at 50% 28%, var(--bg-2), var(--bg-1) 72%);
-    overflow: hidden;
-    font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-    transition: opacity 0.6s ease-in-out;
-  }
-  
-  #stage { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
-  #camera-svg { width: min(92vw, 960px); height: auto; overflow: visible; }
-  .part { transition: filter .3s ease; }
-  .label { fill: var(--text-dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: 0; transition: opacity .35s ease; font-family: inherit; }
-  #hud { position: absolute; top: 28px; left: 0; right: 0; text-align: center; color: var(--text); letter-spacing: .35em; text-transform: uppercase; font-size: 11px; opacity: .55; user-select: none; }
-  #hud span { color: var(--accent); opacity: .9; }
-  #progress-wrap { position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%); width: min(70vw,420px); height: 2px; background: #ffffff14; border-radius: 2px; }
-  #progress-bar { height: 100%; width: 0%; background: var(--accent); border-radius: 2px; box-shadow: 0 0 10px var(--accent-dim); }
-  #phase-text { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); color: var(--text-dim); font-size: 10.5px; letter-spacing: .25em; text-transform: uppercase; }
-  @media (prefers-reduced-motion: reduce){ .part{ transition: none !important; } }
-</style>
-    </head>
-        
+<html lang="en">        
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
