@@ -5,10 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Dashboard</title>
 
-    <!-- Auth Check Script: Redirects to login if not authenticated -->
+    <!-- Auth Check & Animation Skip Script -->
     <script>
+        // 1. Redirects to login if not authenticated
         if (localStorage.getItem("isLoggedIn") !== "true") {
             window.location.replace("index.html"); 
+        }
+        
+        // 2. Prevents screen flashing on refresh if animation is skipped
+        if (sessionStorage.getItem("animationPlayed") === "true") {
+            document.documentElement.classList.add("skip-anim");
         }
     </script>
 
@@ -24,6 +30,10 @@
             #printableArea, #printableArea * { visibility: visible; }
             #printableArea { position: absolute; left: 0; top: 0; width: 100%; display: flex; justify-content: center; align-items: center; }
         }
+
+        /* Skip Animation Override Classes */
+        html.skip-anim #animation-intro { display: none !important; }
+        html.skip-anim #dashboard-content { display: block !important; opacity: 1 !important; }
 
         /* --- Camera Animation Styles --- */
         :root {
@@ -204,6 +214,11 @@
     <!-- ======================= ANIMATION SCRIPT ======================= -->
     <script>
         (function(){
+            // Check if animation has already played this session to skip it
+            if (sessionStorage.getItem('animationPlayed') === 'true') {
+                return; // Stop the script here so it doesn't run the animation
+            }
+
             const explodeTargets = {
                 'p-body':        {dx:0,   dy:0,    rot:0,   scale:1},
                 'p-lcd':         {dx:-30, dy:210,  rot:8,   scale:1},
@@ -279,6 +294,9 @@
                         setTimeout(() => {
                             dashboard.classList.remove('opacity-0');
                             dashboard.classList.add('opacity-100');
+                            
+                            // Save to session storage so it doesn't play on refresh
+                            sessionStorage.setItem('animationPlayed', 'true');
                         }, 50);
                     }, 600);
                     
