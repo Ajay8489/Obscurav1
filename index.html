@@ -5,42 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>obscura Spare Inventory - Login</title>
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <style>
-        /* CSS rule to set your provided image as the full-screen background */
-        body {
-            background-image: url('IMG-20260522-WA004546477.jpg');
-            background-position: center;
-            background-repeat: no-repeat;
-            background-size: cover;
-            background-attachment: fixed;
-        }
-    </style>
 </head>
-<body class="flex items-center justify-center h-screen relative">
-    <!-- Dark overlay to ensure contrast and readability -->
-    <div class="absolute inset-0 bg-black/40 z-0"></div>
-
-    <!-- Login Container -->
-    <div class="relative z-10 bg-white/90 backdrop-blur-md p-8 rounded-xl shadow-2xl w-96 border border-white/20">
+<body class="bg-gray-100 flex items-center justify-center h-screen">
+    <div class="bg-white p-8 rounded-lg shadow-md w-96">
         <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">obscura Service Inventory</h2>
         <form id="loginForm">
             <div class="mb-4">
                 <label class="block text-gray-700 text-sm font-bold mb-2">Username</label>
-                <input type="text" id="username" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/80" required>
+                <input type="text" id="username" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
             </div>
             <div class="mb-6">
                 <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
-                <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white/80" required>
+                <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
             </div>
-            <button type="submit" id="loginBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition shadow-md">Login</button>
+            <button type="submit" id="loginBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">Login</button>
         </form>
-        <p id="errorMessage" class="text-red-500 text-sm mt-4 hidden text-center font-medium">Invalid username or password.</p>
+        <p id="errorMessage" class="text-red-500 text-sm mt-4 hidden text-center">Invalid username or password.</p>
     </div>
 
-    <!-- Firebase SDK (Modular Version v10.8.0) -->
+    <!-- Firebase SDK (Modular Version - Aligned to v10.8.0) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // Your Firebase project credentials
         const firebaseConfig = {
@@ -52,14 +38,14 @@
             appId: "1:1081657320125:web:d97ca25751b1de71948dd4"
         };
 
-        // Initialize Firebase
+        // Initialize Firebase & Firestore
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+        const db = getFirestore(app);
 
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const emailInput = document.getElementById('username').value.trim();
+            const userInput = document.getElementById('username').value.trim();
             const passInput = document.getElementById('password').value;
             const errorMsg = document.getElementById('errorMessage');
             const loginBtn = document.getElementById('loginBtn');
@@ -69,12 +55,37 @@
             loginBtn.textContent = 'Connecting...';
 
             try {
-                // Firebase Auth sign-in
-                await signInWithEmailAndPassword(auth, emailInput, passInput);
-                window.location.href = 'dashboard.html';
+                // Query only by username to bypass composite index requirements
+                const usersRef = collection(db, "users");
+                const q = query(usersRef, where("username", "==", userInput));
+                const querySnapshot = await getDocs(q);
+
+                if (!querySnapshot.empty) {
+                    let userAuthenticated = false;
+
+                    querySnapshot.forEach((doc) => {
+                        const userData = doc.data();
+                        // Verify password matches database record
+                        if (userData.password === passInput) {
+                            userAuthenticated = true;
+                        }
+                    });
+
+                    if (userAuthenticated) {
+                        localStorage.setItem('isLoggedIn', 'true');
+                        localStorage.setItem('currentUser', userInput);
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        errorMsg.textContent = "Invalid username or password.";
+                        errorMsg.classList.remove('hidden');
+                    }
+                } else {
+                    errorMsg.textContent = "Invalid username or password.";
+                    errorMsg.classList.remove('hidden');
+                }
             } catch (error) {
-                console.error("Auth Error:", error);
-                errorMsg.textContent = "Invalid username or password.";
+                console.error("Database Login Error:", error);
+                errorMsg.textContent = "Database connection error. Check console.";
                 errorMsg.classList.remove('hidden');
             } finally {
                 loginBtn.disabled = false;
