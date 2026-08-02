@@ -1,459 +1,416 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Dashboard</title>
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, where, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    <!-- Auth Check & Animation Skip Script -->
-    <script>
-        // 1. Redirects to login if not authenticated
-        if (localStorage.getItem("isLoggedIn") !== "true") {
-            window.location.replace("index.html");
-        }
-        // 2. Prevents screen flashing on refresh if animation is skipped
-        if (sessionStorage.getItem("animationPlayed") === "true") {
-            document.documentElement.classList.add("skip-anim");
-        }
-    </script>
+// --- FIREBASE CONFIGURATION ---
+const firebaseConfig = {
+    apiKey: "AIzaSyDRZgMvYRjpuFlsTyoLTZK_mNuvA7jg4HE",
+    authDomain: "obscura-9bb1a.firebaseapp.com",
+    projectId: "obscura-9bb1a",
+    storageBucket: "obscura-9bb1a.firebasestorage.app",
+    messagingSenderId: "1081657320125",
+    appId: "1:1081657320125:web:d97ca25751b1de71948dd4"
+};
 
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- JsBarcode for generating barcodes -->
-    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
-    <script type="module" src="app.js"></script>
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
 
-    <style>
-        /* Styling to ensure clean barcode printing */
-        @media print {
-            body * { visibility: hidden; }
-            #printableArea, #printableArea * { visibility: visible; }
-            #printableArea {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                display: flex;
-                justify-content: center;
-                align-items: center;
+// --- DOM ELEMENTS ---
+const spareForm = document.getElementById('spareForm');
+const formTitle = document.getElementById('formTitle');
+const spareNameInput = document.getElementById('spareName');
+const spareQtyInput = document.getElementById('spareQty');
+const spareUsedInput = document.getElementById('spareUsed');
+const spareBarcodeInput = document.getElementById('spareBarcode');
+const barcodePreview = document.getElementById('barcodePreview');
+const editIdInput = document.getElementById('editId');
+const saveBtn = document.getElementById('saveBtn');
+const cancelBtn = document.getElementById('cancelBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const printDbBtn = document.getElementById('printDbBtn');
+const inventoryTableBody = document.getElementById('inventoryTableBody');
+const totalUniqueEl = document.getElementById('totalUnique');
+const totalQtyEl = document.getElementById('totalQty');
+const generateBarcodeBtn = document.getElementById('generateBarcodeBtn');
+const printBarcodeBtn = document.getElementById('printBarcodeBtn');
+
+// --- USAGE TRACKER DOM ELEMENTS ---
+const startDateInput = document.getElementById('startDate');
+const endDateInput = document.getElementById('endDate');
+const checkUsageBtn = document.getElementById('checkUsageBtn');
+const usageResults = document.getElementById('usageResults');
+const usageList = document.getElementById('usageList');
+
+// --- CACHED INVENTORY DATA FOR USAGE FILTERING ---
+let currentInventoryData = [];
+
+// --- AUTHENTICATION & INITIALIZATION ---
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        console.log("Authenticated as:", user.uid);
+    } else {
+        signInAnonymously(auth).catch((error) => {
+            console.error("Anonymous auth error:", error);
+        });
+    }
+});
+
+// Load inventory immediately
+initInventoryListener();
+
+// Set default dates for usage tracker on load
+document.addEventListener('DOMContentLoaded', () => {
+    const today = new Date().toISOString().split('T')[0];
+    if (endDateInput) endDateInput.value = today;
+    if (startDateInput) startDateInput.value = today;
+});
+
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('currentUser');
+        signOut(auth).then(() => {
+            window.location.href = 'index.html';
+        }).catch((error) => {
+            console.error("Logout error:", error);
+        });
+    });
+}
+
+// --- REAL-TIME FIRESTORE LISTENER ---
+function initInventoryListener() {
+    const q = collection(db, "spare");
+    onSnapshot(q, (snapshot) => {
+        let totalUnique = snapshot.size;
+        let totalQty = 0;
+        currentInventoryData = []; // Reset cache array
+
+        if (inventoryTableBody) {
+            inventoryTableBody.innerHTML = "";
+            if (totalUnique === 0) {
+                inventoryTableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-gray-400">No spares found in inventory.</td></tr>`;
             }
         }
 
-        /* Skip Animation Override Classes */
-        html.skip-anim #animation-intro {
-            display: none !important;
-        }
-        html.skip-anim #dashboard-content {
-            display: block !important;
-            opacity: 1 !important;
-        }
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const id = docSnap.id;
+            const rawName = data.name || "";
+            const rawBarcode = data.barcode || "";
+            const qty = Number(data.quantity) || 0;
+            // Safely handle records that don't have the 'used' field yet
+            const used = (data.used !== undefined && data.used !== null) ? Number(data.used) : 0;
+            
+            // Push into local cache for date range filtering
+            currentInventoryData.push({
+                id,
+                name: rawName,
+                quantity: qty,
+                used: used,
+                barcode: rawBarcode,
+                updatedAt: data.updatedAt || data.createdAt
+            });
 
-        /* --- Camera Animation Styles --- */
-        :root {
-            --bg-1: #0a0b0c;
-            --bg-2: #17181a;
-            --accent: #ff8a3d;
-            --accent-dim: #ff8a3d55;
-            --text: #c9ccd1;
-            --text-dim: #6b6f76;
-        }
+            totalQty += qty;
 
-        #animation-intro {
-            position: fixed;
-            inset: 0;
-            z-index: 50;
-            background: radial-gradient(ellipse at 50% 28%, var(--bg-2), var(--bg-1) 72%);
-            overflow: hidden;
-            font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-            transition: opacity 0.6s ease-in-out;
-        }
+            const row = document.createElement('tr');
+            row.className = "hover:bg-gray-50 transition-colors";
+            
+            row.innerHTML = `
+                <td class="p-4 font-medium text-gray-800">${escapeHtml(rawName)}</td>
+                <td class="p-4 font-mono text-gray-600">${escapeHtml(rawBarcode)}</td>
+                <td class="p-4 text-center font-semibold text-gray-700">${qty}</td>
+                <td class="p-4 text-center font-semibold text-orange-600">${used}</td>
+                <td class="p-4 text-right space-x-2">
+                    <button type="button" class="edit-btn text-blue-600 hover:text-blue-800 font-medium text-xs bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded">Edit</button>
+                    <button type="button" class="delete-btn text-red-600 hover:text-red-800 font-medium text-xs bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded">Delete</button>
+                </td>
+            `;
 
-        #stage {
-            position: relative;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #camera-svg {
-            width: min(92vw, 960px);
-            height: auto;
-            overflow: visible;
-        }
-
-        .part {
-            transition: filter .3s ease;
-        }
-
-        .label {
-            fill: var(--text-dim);
-            font-size: 11px;
-            letter-spacing: .08em;
-            text-transform: uppercase;
-            opacity: 0;
-            transition: opacity .35s ease;
-            font-family: inherit;
-        }
-
-        #hud {
-            position: absolute;
-            top: 28px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            color: var(--text);
-            letter-spacing: .35em;
-            text-transform: uppercase;
-            font-size: 11px;
-            opacity: .55;
-            user-select: none;
-        }
-
-        #hud span {
-            color: var(--accent);
-            opacity: .9;
-        }
-
-        #progress-wrap {
-            position: absolute;
-            bottom: 34px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: min(70vw,420px);
-            height: 2px;
-            background: #ffffff14;
-            border-radius: 2px;
-        }
-
-        #progress-bar {
-            height: 100%;
-            width: 0%;
-            background: var(--accent);
-            border-radius: 2px;
-            box-shadow: 0 0 10px var(--accent-dim);
-        }
-
-        #phase-text {
-            position: absolute;
-            bottom: 52px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: var(--text-dim);
-            font-size: 10.5px;
-            letter-spacing: .25em;
-            text-transform: uppercase;
-        }
-
-        @media (prefers-reduced-motion: reduce){
-            .part{ transition: none !important; }
-        }
-    </style>
-</head>
-<body class="bg-gray-50 min-h-screen">
-
-    <!-- ======================= ANIMATION INTRO ======================= -->
-    <div id="animation-intro">
-        <div id="stage">
-            <div id="hud">Field <span>Teardown</span> Sequence</div>
-            <svg id="camera-svg" viewBox="0 0 800 560" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                    <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#5c6066"/><stop offset="12%" stop-color="#44474d"/><stop offset="45%" stop-color="#303338"/><stop offset="75%" stop-color="#232529"/><stop offset="100%" stop-color="#17181b"/></linearGradient>
-                    <linearGradient id="bodySide" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#1a1b1e"/><stop offset="50%" stop-color="#3a3d42"/><stop offset="100%" stop-color="#1a1b1e"/></linearGradient>
-                    <linearGradient id="metalGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#eef0f2"/><stop offset="22%" stop-color="#c7cbd1"/><stop offset="45%" stop-color="#9a9fa6"/><stop offset="60%" stop-color="#dfe2e5"/><stop offset="80%" stop-color="#8b9096"/><stop offset="100%" stop-color="#c2c6cb"/></linearGradient>
-                    <radialGradient id="metalRing" cx="35%" cy="30%" r="75%"><stop offset="0%" stop-color="#f2f4f6"/><stop offset="35%" stop-color="#b9bec4"/><stop offset="70%" stop-color="#7c8188"/><stop offset="100%" stop-color="#4b4f54"/></radialGradient>
-                    <radialGradient id="lensGrad" cx="36%" cy="32%" r="72%"><stop offset="0%" stop-color="#eaf6ff"/><stop offset="10%" stop-color="#9fd7e8"/><stop offset="28%" stop-color="#4f7f9c"/><stop offset="46%" stop-color="#35506a"/><stop offset="62%" stop-color="#5a3f6b"/><stop offset="80%" stop-color="#1c2230"/><stop offset="100%" stop-color="#05070c"/></radialGradient>
-                    <radialGradient id="lensCoreReflect" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/><stop offset="35%" stop-color="#ffffff" stop-opacity="0.12"/><stop offset="100%" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
-                    <pattern id="rubberTex" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(20)"><rect width="6" height="6" fill="#1c1d20"/><circle cx="1.5" cy="1.5" r="0.9" fill="#000000" opacity="0.55"/><circle cx="4.5" cy="4.5" r="0.9" fill="#000000" opacity="0.55"/></pattern>
-                    <linearGradient id="lcdGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1c2733"/><stop offset="100%" stop-color="#0a0f14"/></linearGradient>
-                    <radialGradient id="glowGrad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.9"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></radialGradient>
-                    <linearGradient id="evfGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4a4e54"/><stop offset="100%" stop-color="#232529"/></linearGradient>
-                    <filter id="softShadow" x="-50%" y="-50%" width="220%" height="220%"><feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#000" flood-opacity="0.5"/></filter>
-                    <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="noise"/><feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"/></filter>
-                </defs>
-
-                <ellipse id="groundShadow" cx="400" cy="460" rx="235" ry="22" fill="#000" opacity="0.4"/>
-                
-                <g id="p-body" class="part" filter="url(#softShadow)"><rect x="235" y="220" width="330" height="150" rx="20" fill="url(#bodyGrad)"/><rect x="235" y="220" width="330" height="150" rx="20" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="1.5"/><rect x="245" y="224" width="310" height="14" rx="7" fill="#ffffff" opacity="0.09"/><rect x="235" y="220" width="9" height="150" rx="4" fill="url(#bodySide)" opacity="0.7"/><rect x="556" y="220" width="9" height="150" rx="4" fill="url(#bodySide)" opacity="0.7"/><rect x="252" y="256" width="96" height="8" rx="4" fill="#000000" opacity="0.3"/><rect x="468" y="240" width="16" height="110" rx="7" fill="url(#rubberTex)" opacity="0.9"/><rect x="558" y="250" width="4" height="60" rx="2" fill="#000" opacity="0.4"/></g>
-                <g id="p-grip" class="part" filter="url(#softShadow)"><path d="M 528 224 Q 566 232 566 270 Q 566 320 534 340 L 518 340 L 518 224 Z" fill="url(#bodyGrad)"/><path d="M 528 224 Q 566 232 566 270 Q 566 320 534 340 L 518 340 L 518 224 Z" fill="url(#rubberTex)" opacity="0.4"/><path d="M 538 238 Q 555 256 553 288" stroke="#000" stroke-opacity="0.4" stroke-width="6" fill="none" stroke-linecap="round"/></g>
-                <g id="p-mount" class="part" filter="url(#softShadow)"><circle cx="330" cy="295" r="66" fill="#0c0d0f"/><circle cx="330" cy="295" r="66" fill="none" stroke="url(#metalRing)" stroke-width="6"/><circle cx="330" cy="295" r="58" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="1.5"/><circle cx="330" cy="295" r="50" fill="#050608"/><circle cx="300" cy="264" r="4" fill="#dfe2e5"/><circle cx="294" cy="245" r="6" fill="url(#metalRing)"/><circle cx="294" cy="345" r="6" fill="url(#metalRing)"/><circle cx="366" cy="345" r="6" fill="url(#metalRing)"/><circle cx="366" cy="245" r="6" fill="url(#metalRing)"/><circle cx="330" cy="295" r="3.5" fill="#ff8a3d" opacity="0.85"/></g>
-                <g id="p-lensbarrel" class="part" filter="url(#softShadow)"><rect x="150" y="245" width="176" height="100" rx="14" fill="url(#bodyGrad)"/><rect x="150" y="245" width="176" height="100" rx="14" fill="none" stroke="#000" stroke-opacity="0.4" stroke-width="1.5"/><rect x="150" y="270" width="176" height="8" fill="#000" opacity="0.4"/><rect x="150" y="310" width="176" height="8" fill="#000" opacity="0.4"/><g stroke="#000" stroke-opacity="0.35" stroke-width="1.4"><line x1="160" y1="250" x2="160" y2="262"/><line x1="168" y1="250" x2="168" y2="262"/><line x1="176" y1="250" x2="176" y2="262"/><line x1="184" y1="250" x2="184" y2="262"/><line x1="192" y1="250" x2="192" y2="262"/><line x1="200" y1="250" x2="200" y2="262"/><line x1="208" y1="250" x2="208" y2="262"/><line x1="216" y1="250" x2="216" y2="262"/></g><rect x="152" y="247" width="172" height="7" rx="3.5" fill="#ffffff" opacity="0.06"/><rect x="160" y="328" width="146" height="3" rx="1.5" fill="#ff8a3d" opacity="0.5"/></g>
-                <g id="p-lensfront" class="part" filter="url(#softShadow)"><circle cx="140" cy="295" r="64" fill="#0a0b0d"/><circle cx="140" cy="295" r="64" fill="none" stroke="url(#metalRing)" stroke-width="6"/><circle cx="140" cy="295" r="56" fill="#000"/><circle cx="140" cy="295" r="46" fill="url(#lensGrad)"/><circle cx="140" cy="295" r="46" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1.5"/><circle cx="140" cy="295" r="34" fill="url(#lensCoreReflect)"/><ellipse cx="120" cy="274" rx="13" ry="6" fill="#ffffff" opacity="0.55" transform="rotate(-30 120 274)"/><circle cx="140" cy="295" r="64" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="2 2"/></g>
-                <g id="p-evf" class="part" filter="url(#softShadow)"><rect x="372" y="196" width="70" height="30" rx="8" fill="url(#evfGrad)"/><rect x="372" y="196" width="70" height="30" rx="8" fill="none" stroke="#000" stroke-opacity="0.4" stroke-width="1.2"/><rect x="382" y="203" width="34" height="16" rx="4" fill="#050608"/><circle cx="424" cy="211" r="6" fill="#1b1c1f"/><circle cx="424" cy="211" r="6" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="1"/></g>
-                <g id="p-hotshoe" class="part" filter="url(#softShadow)"><rect x="388" y="184" width="36" height="16" rx="3" fill="url(#metalGrad)"/><rect x="393" y="187" width="26" height="3.5" fill="#000" opacity="0.35"/><rect x="393" y="194" width="26" height="3" fill="#000" opacity="0.3"/></g>
-                <g id="p-dial" class="part" filter="url(#softShadow)"><circle cx="480" cy="212" r="20" fill="url(#metalRing)"/><circle cx="480" cy="212" r="20" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="1.3"/><g stroke="#000" stroke-opacity="0.3" stroke-width="1.2"><line x1="480" y1="194" x2="480" y2="198"/><line x1="497" y1="203" x2="493" y2="206"/><line x1="497" y1="221" x2="493" y2="218"/><line x1="480" y1="230" x2="480" y2="226"/></g><circle cx="480" cy="212" r="7" fill="#17181b"/></g>
-                <g id="p-compdial" class="part" filter="url(#softShadow)"><circle cx="525" cy="205" r="15" fill="url(#metalRing)"/><circle cx="525" cy="205" r="15" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="1.2"/><circle cx="525" cy="205" r="5" fill="#17181b"/></g>
-                <g id="p-shutter" class="part" filter="url(#softShadow)"><ellipse cx="536" cy="222" rx="15" ry="11" fill="url(#metalGrad)"/><ellipse cx="536" cy="222" rx="15" ry="11" fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="1"/><ellipse cx="536" cy="222" rx="9" ry="6.5" fill="var(--accent)" opacity="0.9"/><ellipse cx="533" cy="219" rx="3.5" ry="2" fill="#ffffff" opacity="0.4"/></g>
-                <g id="p-frontdial" class="part" filter="url(#softShadow)"><circle cx="512" cy="238" r="9" fill="url(#metalRing)"/><circle cx="512" cy="238" r="9" fill="none" stroke="#000" stroke-opacity="0.4" stroke-width="1"/></g>
-                <g id="p-lug-l" class="part" filter="url(#softShadow)"><circle cx="246" cy="228" r="9" fill="none" stroke="url(#metalRing)" stroke-width="4"/><circle cx="246" cy="228" r="3.5" fill="#000" opacity="0.5"/></g>
-                <g id="p-lug-r" class="part" filter="url(#softShadow)"><circle cx="556" cy="228" r="9" fill="none" stroke="url(#metalRing)" stroke-width="4"/><circle cx="556" cy="228" r="3.5" fill="#000" opacity="0.5"/></g>
-                <g id="p-battdoor" class="part" filter="url(#softShadow)"><rect x="470" y="340" width="68" height="30" rx="8" fill="url(#bodyGrad)"/><rect x="470" y="340" width="68" height="30" rx="8" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="1.2"/><rect x="486" y="352" width="36" height="5" rx="2.5" fill="#000" opacity="0.4"/></g>
-                <g id="p-lcd" class="part" filter="url(#softShadow)"><rect x="248" y="384" width="180" height="112" rx="9" fill="url(#lcdGrad)"/><rect x="248" y="384" width="180" height="112" rx="9" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="2"/><rect x="248" y="378" width="180" height="7" rx="3.5" fill="#3a3d42"/><rect x="258" y="394" width="160" height="92" rx="4" fill="#0d151c"/><rect x="264" y="400" width="64" height="6" rx="3" fill="#3fa9dc" opacity="0.55"/><rect x="264" y="412" width="38" height="4" rx="2" fill="#ffffff" opacity="0.18"/><circle cx="404" cy="406" r="5" fill="#ff8a3d" opacity="0.85"/><rect x="258" y="394" width="160" height="16" fill="#ffffff" opacity="0.04"/></g>
-                <g id="p-screw1" class="part" filter="url(#softShadow)"><circle cx="260" cy="360" r="4" fill="url(#metalRing)"/><line x1="257" y1="360" x2="263" y2="360" stroke="#000" stroke-opacity="0.6" stroke-width="1"/></g>
-                <g id="p-screw2" class="part" filter="url(#softShadow)"><circle cx="550" cy="360" r="4" fill="url(#metalRing)"/><line x1="547" y1="360" x2="553" y2="360" stroke="#000" stroke-opacity="0.6" stroke-width="1"/></g>
-                <g id="reticle" opacity="0">
-                    <circle cx="140" cy="295" r="78" fill="url(#glowGrad)"/>
-                    <g id="reticleLines" stroke="var(--accent)" stroke-width="2" fill="none" opacity="0.9">
-                        <path d="M 90 246 L 90 266 M 90 246 L 110 246"/>
-                        <path d="M 190 246 L 190 266 M 190 246 L 170 246"/>
-                        <path d="M 90 344 L 90 324 M 90 344 L 110 344"/>
-                        <path d="M 190 344 L 190 324 M 190 344 L 170 344"/>
-                    </g>
-                </g>
-                <g id="labels">
-                    <text class="label" id="lbl-body" x="400" y="212">Chassis</text>
-                    <text class="label" id="lbl-lcd" x="290" y="514">Tilt LCD</text>
-                    <text class="label" id="lbl-grip" x="576" y="230">Grip</text>
-                    <text class="label" id="lbl-mount" x="330" y="212">E-Mount</text>
-                    <text class="label" id="lbl-lensbarrel" x="240" y="238">Barrel</text>
-                    <text class="label" id="lbl-lensfront" x="140" y="215">Objective</text>
-                    <text class="label" id="lbl-evf" x="408" y="188">EVF</text>
-                    <text class="label" id="lbl-hotshoe" x="408" y="176">Hot Shoe</text>
-                    <text class="label" id="lbl-dial" x="480" y="182">Mode Dial</text>
-                    <text class="label" id="lbl-compdial" x="530" y="178">Exp. Comp</text>
-                    <text class="label" id="lbl-shutter" x="536" y="200">Shutter</text>
-                    <text class="label" id="lbl-frontdial" x="500" y="256">Front Dial</text>
-                    <text class="label" id="lbl-battdoor" x="500" y="330">Battery Door</text>
-                </g>
-                <rect x="0" y="0" width="800" height="560" filter="url(#grain)" opacity="0.5" style="mix-blend-mode:overlay"/>
-            </svg>
-            <div id="phase-text">Assembled</div>
-            <div id="progress-wrap"><div id="progress-bar"></div></div>
-        </div>
-    </div>
-
-    <!-- ======================= MAIN DASHBOARD ======================= -->
-    <!-- Wrapped in a container that is hidden initially, and fades in after animation -->
-    <div id="dashboard-content" class="hidden opacity-0 transition-opacity duration-700">
-        <nav class="bg-slate-800 text-white p-4 flex justify-between items-center shadow-md">
-            <h1 class="text-xl font-bold">Obscura Spare Dashboard</h1>
-            <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-sm font-semibold">Logout</button>
-        </nav>
-
-        <div class="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="md:col-span-1 space-y-6">
-                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h3 id="formTitle" class="text-lg font-bold text-gray-700 mb-4">Add New Spare</h3>
-                    <form id="spareForm" class="space-y-4">
-                        <input type="hidden" id="editId">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-600">Spare Name</label>
-                            <input type="text" id="spareName" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
-                        </div>
-                        <!-- NEW GRID ADDED HERE -->
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-600">Quantity</label>
-                                <input type="number" id="spareQty" min="0" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-600">Used</label>
-                                <input type="number" id="spareUsed" min="0" value="0" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <label class="block text-sm font-medium text-gray-600">Barcode / SKU</label>
-                                <button type="button" id="generateBarcodeBtn" class="text-xs bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded shadow-sm flex items-center gap-1">Generate SKU</button>
-                            </div>
-                            <div class="relative">
-                                <!-- Focus here and scan with your hardware gun -->
-                                <input type="text" id="spareBarcode" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required placeholder="Click here & scan barcode...">
-                            </div>
-                        </div>
-                        <!-- Barcode Live Generator Preview & Print -->
-                        <div class="bg-gray-50 p-3 rounded border border-dashed border-gray-300 text-center">
-                            <div class="flex justify-between items-center mb-2">
-                                <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Barcode Preview</label>
-                                <button type="button" id="printBarcodeBtn" class="text-xs bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded shadow-sm flex items-center gap-1">🖨️ Print Label</button>
-                            </div>
-                            <div id="printableArea" class="flex justify-center overflow-x-auto py-1">
-                                <svg id="barcodePreview"></svg>
-                            </div>
-                        </div>
-                        <div class="flex gap-2">
-                            <button type="submit" id="saveBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium">Save Spare</button>
-                            <button type="button" id="cancelBtn" class="hidden w-full bg-gray-400 hover:bg-gray-500 text-white py-2 rounded font-medium">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Usage Tracker Section -->
-                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                    <h3 class="text-lg font-bold text-gray-700 mb-4">Track Spare Usage</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-600">From Date</label>
-                            <input type="date" id="startDate" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-600">To Date (Today)</label>
-                            <input type="date" id="endDate" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
-                        </div>
-                        <button id="checkUsageBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium">
-                            Check Usage
-                        </button>
-                    </div>
-                    <!-- Results Container -->
-                    <div id="usageResults" class="mt-4 p-3 bg-gray-50 rounded border border-gray-200 hidden">
-                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Usage Report</h4>
-                        <ul id="usageList" class="text-sm divide-y divide-gray-200">
-                            <!-- Filtered results will be injected here via JS -->
-                        </ul>
-                    </div>
-                </div>
-            </div>
-
-            <div class="md:col-span-2 space-y-6">
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-gray-500 text-sm font-medium uppercase">Unique Items</p>
-                        <p id="totalUnique" class="text-3xl font-bold text-gray-800">0</p>
-                    </div>
-                    <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-                        <p class="text-gray-500 text-sm font-medium uppercase">Total Stock Quantity</p>
-                        <p id="totalQty" class="text-3xl font-bold text-blue-600">0</p>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                        <h3 class="font-bold text-gray-700">Inventory Database</h3>
-                        <button id="printDbBtn" class="bg-slate-700 hover:bg-slate-800 text-white text-sm px-3 py-1.5 rounded font-medium flex items-center gap-1.5 shadow-sm">🖨️ Print Database</button>
-                    </div>
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <!-- NEW USED COLUMN HEADER ADDED HERE -->
-                            <tr class="bg-gray-100 text-gray-700 text-sm uppercase">
-                                <th class="p-4">Spare Name</th>
-                                <th class="p-4">Barcode</th>
-                                <th class="p-4 text-center">Quantity</th>
-                                <th class="p-4 text-center">Used</th>
-                                <th class="p-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventoryTableBody" class="divide-y divide-gray-200 text-sm">
-                            <tr><td colspan="5" class="p-4 text-center text-gray-400">Loading data....</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- End Dashboard Content -->
-
-    <!-- ======================= ANIMATION SCRIPT ======================= -->
-    <script>
-    (function(){
-        // Check if animation has already played this session to skip it
-        if (sessionStorage.getItem('animationPlayed') === 'true') {
-            return; // Stop the script here so it doesn't run the animation
-        }
-
-        const explodeTargets = {
-            'p-body':        {dx:0,   dy:0,    rot:0,   scale:1},
-            'p-lcd':         {dx:-30, dy:210,  rot:8,   scale:1},
-            'p-grip':        {dx:150, dy:30,   rot:14,  scale:1},
-            'p-mount':       {dx:-10, dy:150,  rot:35,  scale:1},
-            'p-lensbarrel':  {dx:-190,dy:40,   rot:-8,  scale:1},
-            'p-lensfront':   {dx:-300,dy:-50,  rot:-20, scale:1},
-            'p-evf':         {dx:-10, dy:-150, rot:10,  scale:1},
-            'p-hotshoe':     {dx:20,  dy:-190, rot:-25, scale:1},
-            'p-dial':        {dx:170, dy:-150, rot:120, scale:1},
-            'p-compdial':    {dx:250, dy:-160, rot:-90, scale:1},
-            'p-shutter':     {dx:260, dy:-110, rot:60,  scale:1},
-            'p-frontdial':   {dx:230, dy:-70,  rot:200, scale:1},
-            'p-lug-l':       {dx:-140,dy:-120, rot:0,   scale:1},
-            'p-lug-r':       {dx:180, dy:-120, rot:0,   scale:1},
-            'p-battdoor':    {dx:220, dy:150,  rot:-30, scale:1},
-            'p-screw1':      {dx:-260,dy:220,  rot:180, scale:1},
-            'p-screw2':      {dx:280, dy:220,  rot:180, scale:1},
-        };
-
-        const ids = Object.keys(explodeTargets);
-        const els = {};
-        ids.forEach(id => els[id] = document.getElementById(id));
-
-        const reticle = document.getElementById('reticle');
-        const groundShadow = document.getElementById('groundShadow');
-        const phaseText = document.getElementById('phase-text');
-        const progressBar = document.getElementById('progress-bar');
-        const labels = document.querySelectorAll('.label');
-
-        function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
-
-        function setPart(id, t){
-            const target = explodeTargets[id];
-            els[id].setAttribute('transform', `translate(${(target.dx * t).toFixed(2)},${(target.dy * t).toFixed(2)}) rotate(${(target.rot * t).toFixed(2)})`);
-        }
-
-        function render(t){
-            ids.forEach(id => setPart(id, t));
-            reticle.style.opacity = t.toFixed(3);
-            groundShadow.setAttribute('rx', (235 - 45*t).toFixed(1));
-            groundShadow.setAttribute('opacity', (0.4 - 0.2*t).toFixed(2));
-            labels.forEach(l => l.style.opacity = t > 0.55 ? Math.min(1,(t-0.55)/0.35) : 0);
-        }
-
-        const HOLD_ASSEMBLED = 1400;
-        const EXPLODE = 2200;
-        const HOLD_EXPLODED = 1600;
-        const REASSEMBLE = 2200;
-        const HOLD_END = 900;
-        const TOTAL = HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED + REASSEMBLE + HOLD_END;
-
-        let startTime = null;
-
-        function frame(now){
-            if(startTime === null) startTime = now;
-            let elapsed = now - startTime;
-
-            // Transition to dashboard when animation finishes
-            if (elapsed >= TOTAL) {
-                const intro = document.getElementById('animation-intro');
-                const dashboard = document.getElementById('dashboard-content');
-                intro.style.opacity = '0';
-                setTimeout(() => {
-                    intro.style.display = 'none';
-                    dashboard.classList.remove('hidden');
-                    setTimeout(() => {
-                        dashboard.classList.remove('opacity-0');
-                        dashboard.classList.add('opacity-100');
-                        // Save to session storage so it doesn't play on refresh
-                        sessionStorage.setItem('animationPlayed', 'true');
-                    }, 50);
-                }, 600);
-                return;
+            const editBtn = row.querySelector('.edit-btn');
+            if (editBtn) {
+                editBtn.addEventListener('click', () => {
+                    window.editSpare(id, rawName, qty, rawBarcode, used);
+                });
             }
 
-            let t, phase;
-            if(elapsed < HOLD_ASSEMBLED){
-                t = 0;
-                phase = 'Initializing...';
-            } else if(elapsed < HOLD_ASSEMBLED + EXPLODE){
-                const p = (elapsed - HOLD_ASSEMBLED) / EXPLODE;
-                t = easeInOutCubic(p);
-                phase = 'Disassembling';
-            } else if(elapsed < HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED){
-                t = 1;
-                phase = 'Verifying Parts';
-            } else if(elapsed < HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED + REASSEMBLE){
-                const p = (elapsed - HOLD_ASSEMBLED - EXPLODE - HOLD_EXPLODED) / REASSEMBLE;
-                t = 1 - easeInOutCubic(p);
-                phase = 'Reassembling';
+            const deleteBtn = row.querySelector('.delete-btn');
+            if (deleteBtn) {
+                deleteBtn.addEventListener('click', () => {
+                    window.deleteSpare(id);
+                });
+            }
+
+            if (inventoryTableBody) {
+                inventoryTableBody.appendChild(row);
+            }
+        });
+
+        if (totalUniqueEl) totalUniqueEl.textContent = totalUnique;
+        if (totalQtyEl) totalQtyEl.textContent = totalQty;
+    }, (error) => {
+        console.error("Error fetching inventory: ", error);
+        if (inventoryTableBody) {
+            inventoryTableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">Error loading inventory data.</td></tr>`;
+        }
+    });
+}
+
+// --- USAGE TRACKER FILTER HANDLER ---
+if (checkUsageBtn) {
+    checkUsageBtn.addEventListener('click', () => {
+        const startVal = startDateInput ? startDateInput.value : '';
+        const endVal = endDateInput ? endDateInput.value : '';
+
+        if (!startVal || !endVal) {
+            alert("Please select both a start and end date.");
+            return;
+        }
+
+        const startDate = new Date(startVal);
+        startDate.setHours(0, 0, 0, 0);
+
+        const endDate = new Date(endVal);
+        endDate.setHours(23, 59, 59, 999);
+
+        const filteredSpares = currentInventoryData.filter(item => {
+            if (item.used <= 0) return false;
+            
+            let itemDate = new Date();
+            if (item.updatedAt) {
+                itemDate = typeof item.updatedAt.toDate === 'function' ? item.updatedAt.toDate() : new Date(item.updatedAt);
+            }
+
+            return itemDate >= startDate && itemDate <= endDate;
+        });
+
+        displayUsageResults(filteredSpares);
+    });
+}
+
+function displayUsageResults(spares) {
+    if (!usageList || !usageResults) return;
+
+    usageList.innerHTML = '';
+
+    if (spares.length === 0) {
+        usageList.innerHTML = '<li class="py-2 text-gray-500 text-center">No spares used in this timeframe.</li>';
+    } else {
+        spares.forEach(spare => {
+            const li = document.createElement('li');
+            li.className = "py-2 flex justify-between items-center";
+            li.innerHTML = `
+                <span class="font-medium text-gray-700">${escapeHtml(spare.name)}</span>
+                <span class="text-orange-600 font-bold">-${spare.used} used</span>
+            `;
+            usageList.appendChild(li);
+        });
+    }
+
+    usageResults.classList.remove('hidden');
+}
+
+// --- LIVE BARCODE GENERATOR PREVIEW ---
+if (spareBarcodeInput) {
+    spareBarcodeInput.addEventListener('input', (e) => {
+        const value = e.target.value.trim();
+        generateBarcodeSVG(value);
+    });
+}
+
+function generateBarcodeSVG(text) {
+    if (!barcodePreview) return;
+    if (!text) {
+        barcodePreview.innerHTML = "";
+        return;
+    }
+    try {
+        JsBarcode("#barcodePreview", text, {
+            format: "CODE128",
+            lineColor: "#1e293b",
+            width: 1.5,
+            height: 40,
+            displayValue: true
+        });
+    } catch (e) {
+        barcodePreview.innerHTML = "";
+    }
+}
+
+// --- AUTO-GENERATE BARCODE LISTENER ---
+if (generateBarcodeBtn) {
+    generateBarcodeBtn.addEventListener('click', () => {
+        const randomSku = 'SKU-' + Math.floor(10000000 + Math.random() * 90000000);
+        if (spareBarcodeInput) {
+            spareBarcodeInput.value = randomSku;
+            spareBarcodeInput.dispatchEvent(new Event('input'));
+        }
+    });
+}
+
+if (printBarcodeBtn) {
+    printBarcodeBtn.addEventListener('click', () => {
+        window.print();
+    });
+}
+
+// --- FORM SUBMIT (CREATE & UPDATE) ---
+if (spareForm) {
+    spareForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = editIdInput ? editIdInput.value : '';
+        const name = spareNameInput ? spareNameInput.value.trim() : '';
+        const quantity = spareQtyInput ? parseInt(spareQtyInput.value, 10) : 0;
+        const used = spareUsedInput ? parseInt(spareUsedInput.value, 10) : 0;
+        const barcode = spareBarcodeInput ? spareBarcodeInput.value.trim() : '';
+
+        try {
+            if (id) {
+                await updateDoc(doc(db, "spare", id), {
+                    name,
+                    quantity,
+                    used,
+                    barcode,
+                    updatedAt: new Date()
+                });
+                resetForm();
             } else {
-                t = 0;
-                phase = 'Loading Dashboard...';
+                await addDoc(collection(db, "spare"), {
+                    name,
+                    quantity,
+                    used,
+                    barcode,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+                spareForm.reset();
+                if (barcodePreview) barcodePreview.innerHTML = "";
             }
-
-            render(t);
-            phaseText.textContent = phase;
-            progressBar.style.width = (elapsed / TOTAL * 100).toFixed(2) + '%';
-            requestAnimationFrame(frame);
+        } catch (error) {
+            console.error("Error saving document: ", error);
+            alert("Failed to save spare item.");
         }
+    });
+}
 
-        requestAnimationFrame(frame);
-    })();
-    </script>
-</body>
-</html>
+if (printDbBtn) {
+    printDbBtn.addEventListener('click', () => {
+        window.print();
+    });
+}
+
+// --- GLOBAL ACTIONS ---
+window.editSpare = function(id, name, quantity, barcode, used = 0) {
+    if (editIdInput) editIdInput.value = id;
+    if (spareNameInput) spareNameInput.value = name;
+    if (spareQtyInput) spareQtyInput.value = quantity;
+    if (spareUsedInput) spareUsedInput.value = used;
+    if (spareBarcodeInput) spareBarcodeInput.value = barcode;
+    generateBarcodeSVG(barcode);
+
+    if (formTitle) formTitle.textContent = "Edit Spare";
+    if (saveBtn) {
+        saveBtn.textContent = "Update Spare";
+        saveBtn.className = "w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium";
+    }
+    if (cancelBtn) cancelBtn.classList.remove('hidden');
+    if (spareNameInput) spareNameInput.focus();
+};
+
+window.deleteSpare = async function(id) {
+    if (confirm("Are you sure you want to delete this spare item?")) {
+        try {
+            await deleteDoc(doc(db, "spare", id));
+        } catch (error) {
+            console.error("Error deleting document: ", error);
+            alert("Failed to delete item.");
+        }
+    }
+};
+
+if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+        resetForm();
+    });
+}
+
+function resetForm() {
+    if (spareForm) spareForm.reset();
+    if (editIdInput) editIdInput.value = "";
+    if (barcodePreview) barcodePreview.innerHTML = "";
+    if (spareUsedInput) spareUsedInput.value = "0";
+    if (formTitle) formTitle.textContent = "Add New Spare";
+    if (saveBtn) {
+        saveBtn.textContent = "Save Spare";
+        saveBtn.className = "w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium";
+    }
+    if (cancelBtn) cancelBtn.classList.add('hidden');
+}
+
+function escapeHtml(str) {
+    if (!str) return "";
+    return str.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// --- BARCODE SCANNER LOGIC (HARDWARE SCANNER INTERCEPT) ---
+let barcodeBuffer = "";
+let barcodeTimer = null;
+
+document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") {
+        return;
+    }
+
+    if (e.key === "Enter") {
+        if (barcodeBuffer.length > 3) {
+            processScannedBarcode(barcodeBuffer);
+        }
+        barcodeBuffer = "";
+        return;
+    }
+
+    if (e.key.length === 1) {
+        barcodeBuffer += e.key;
+        clearTimeout(barcodeTimer);
+        barcodeTimer = setTimeout(() => {
+            barcodeBuffer = "";
+        }, 50);
+    }
+});
+
+async function processScannedBarcode(scannedCode) {
+    try {
+        const q = query(collection(db, "spare"), where("barcode", "==", scannedCode));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const docSnap = querySnapshot.docs[0];
+            const data = docSnap.data();
+
+            let currentQty = Number(data.quantity) || 0;
+            let currentUsed = (data.used !== undefined && data.used !== null) ? Number(data.used) : 0;
+
+            let newQty = currentQty > 0 ? currentQty - 1 : 0;
+            let newUsed = currentUsed + 1;
+
+            await updateDoc(doc(db, "spare", docSnap.id), {
+                quantity: newQty,
+                used: newUsed,
+                updatedAt: new Date()
+            });
+
+            console.log(`Scanned! ${data.name} updated. Qty: ${newQty}, Used: ${newUsed}`);
+        } else {
+            console.log("Barcode not found in database.");
+        }
+    } catch (error) {
+        console.error("Error processing scan: ", error);
+    }
+}
