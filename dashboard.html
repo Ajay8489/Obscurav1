@@ -11,12 +11,12 @@
         if (localStorage.getItem("isLoggedIn") !== "true") {
             window.location.replace("index.html");
         }
-        
         // 2. Prevents screen flashing on refresh if animation is skipped
         if (sessionStorage.getItem("animationPlayed") === "true") {
             document.documentElement.classList.add("skip-anim");
         }
     </script>
+
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- JsBarcode for generating barcodes -->
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
@@ -27,53 +27,127 @@
         @media print {
             body * { visibility: hidden; }
             #printableArea, #printableArea * { visibility: visible; }
-            #printableArea { position: absolute; left: 0; top: 0; width: 100%; display: flex; justify-content: center; align-items: center; }
+            #printableArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
         }
 
         /* Skip Animation Override Classes */
-        html.skip-anim #animation-intro { display: none !important; }
-        html.skip-anim #dashboard-content { display: block !important; opacity: 1 !important; }
+        html.skip-anim #animation-intro {
+            display: none !important;
+        }
+        html.skip-anim #dashboard-content {
+            display: block !important;
+            opacity: 1 !important;
+        }
 
         /* --- Camera Animation Styles --- */
         :root {
-            --bg-1: #0a0b0c; --bg-2: #17181a;
-            --accent: #ff8a3d; --accent-dim: #ff8a3d55;
-            --text: #c9ccd1; --text-dim: #6b6f76;
+            --bg-1: #0a0b0c;
+            --bg-2: #17181a;
+            --accent: #ff8a3d;
+            --accent-dim: #ff8a3d55;
+            --text: #c9ccd1;
+            --text-dim: #6b6f76;
         }
 
         #animation-intro {
-            position: fixed; inset: 0; z-index: 50;
+            position: fixed;
+            inset: 0;
+            z-index: 50;
             background: radial-gradient(ellipse at 50% 28%, var(--bg-2), var(--bg-1) 72%);
             overflow: hidden;
             font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
             transition: opacity 0.6s ease-in-out;
         }
-        #stage { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        #camera-svg { width: min(92vw, 960px); height: auto; overflow: visible; }
-        .part { transition: filter .3s ease; }
+
+        #stage {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #camera-svg {
+            width: min(92vw, 960px);
+            height: auto;
+            overflow: visible;
+        }
+
+        .part {
+            transition: filter .3s ease;
+        }
+
         .label {
-            fill: var(--text-dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
-            opacity: 0; transition: opacity .35s ease; font-family: inherit;
+            fill: var(--text-dim);
+            font-size: 11px;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            opacity: 0;
+            transition: opacity .35s ease;
+            font-family: inherit;
         }
+
         #hud {
-            position: absolute; top: 28px; left: 0; right: 0; text-align: center;
-            color: var(--text); letter-spacing: .35em; text-transform: uppercase; font-size: 11px;
-            opacity: .55; user-select: none;
+            position: absolute;
+            top: 28px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: var(--text);
+            letter-spacing: .35em;
+            text-transform: uppercase;
+            font-size: 11px;
+            opacity: .55;
+            user-select: none;
         }
-        #hud span { color: var(--accent); opacity: .9; }
+
+        #hud span {
+            color: var(--accent);
+            opacity: .9;
+        }
+
         #progress-wrap {
-            position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
-            width: min(70vw,420px); height: 2px; background: #ffffff14; border-radius: 2px;
+            position: absolute;
+            bottom: 34px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(70vw,420px);
+            height: 2px;
+            background: #ffffff14;
+            border-radius: 2px;
         }
+
         #progress-bar {
-            height: 100%; width: 0%; background: var(--accent);
-            border-radius: 2px; box-shadow: 0 0 10px var(--accent-dim);
+            height: 100%;
+            width: 0%;
+            background: var(--accent);
+            border-radius: 2px;
+            box-shadow: 0 0 10px var(--accent-dim);
         }
+
         #phase-text {
-            position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%);
-            color: var(--text-dim); font-size: 10.5px; letter-spacing: .25em; text-transform: uppercase;
+            position: absolute;
+            bottom: 52px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--text-dim);
+            font-size: 10.5px;
+            letter-spacing: .25em;
+            text-transform: uppercase;
         }
-        @media (prefers-reduced-motion: reduce){ .part{ transition: none !important; } }
+
+        @media (prefers-reduced-motion: reduce){
+            .part{ transition: none !important; }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -97,7 +171,7 @@
                     <filter id="softShadow" x="-50%" y="-50%" width="220%" height="220%"><feDropShadow dx="0" dy="7" stdDeviation="9" flood-color="#000" flood-opacity="0.5"/></filter>
                     <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="noise"/><feColorMatrix in="noise" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0"/></filter>
                 </defs>
-                
+
                 <ellipse id="groundShadow" cx="400" cy="460" rx="235" ry="22" fill="#000" opacity="0.4"/>
                 
                 <g id="p-body" class="part" filter="url(#softShadow)"><rect x="235" y="220" width="330" height="150" rx="20" fill="url(#bodyGrad)"/><rect x="235" y="220" width="330" height="150" rx="20" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="1.5"/><rect x="245" y="224" width="310" height="14" rx="7" fill="#ffffff" opacity="0.09"/><rect x="235" y="220" width="9" height="150" rx="4" fill="url(#bodySide)" opacity="0.7"/><rect x="556" y="220" width="9" height="150" rx="4" fill="url(#bodySide)" opacity="0.7"/><rect x="252" y="256" width="96" height="8" rx="4" fill="#000000" opacity="0.3"/><rect x="468" y="240" width="16" height="110" rx="7" fill="url(#rubberTex)" opacity="0.9"/><rect x="558" y="250" width="4" height="60" rx="2" fill="#000" opacity="0.4"/></g>
@@ -105,7 +179,6 @@
                 <g id="p-mount" class="part" filter="url(#softShadow)"><circle cx="330" cy="295" r="66" fill="#0c0d0f"/><circle cx="330" cy="295" r="66" fill="none" stroke="url(#metalRing)" stroke-width="6"/><circle cx="330" cy="295" r="58" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="1.5"/><circle cx="330" cy="295" r="50" fill="#050608"/><circle cx="300" cy="264" r="4" fill="#dfe2e5"/><circle cx="294" cy="245" r="6" fill="url(#metalRing)"/><circle cx="294" cy="345" r="6" fill="url(#metalRing)"/><circle cx="366" cy="345" r="6" fill="url(#metalRing)"/><circle cx="366" cy="245" r="6" fill="url(#metalRing)"/><circle cx="330" cy="295" r="3.5" fill="#ff8a3d" opacity="0.85"/></g>
                 <g id="p-lensbarrel" class="part" filter="url(#softShadow)"><rect x="150" y="245" width="176" height="100" rx="14" fill="url(#bodyGrad)"/><rect x="150" y="245" width="176" height="100" rx="14" fill="none" stroke="#000" stroke-opacity="0.4" stroke-width="1.5"/><rect x="150" y="270" width="176" height="8" fill="#000" opacity="0.4"/><rect x="150" y="310" width="176" height="8" fill="#000" opacity="0.4"/><g stroke="#000" stroke-opacity="0.35" stroke-width="1.4"><line x1="160" y1="250" x2="160" y2="262"/><line x1="168" y1="250" x2="168" y2="262"/><line x1="176" y1="250" x2="176" y2="262"/><line x1="184" y1="250" x2="184" y2="262"/><line x1="192" y1="250" x2="192" y2="262"/><line x1="200" y1="250" x2="200" y2="262"/><line x1="208" y1="250" x2="208" y2="262"/><line x1="216" y1="250" x2="216" y2="262"/></g><rect x="152" y="247" width="172" height="7" rx="3.5" fill="#ffffff" opacity="0.06"/><rect x="160" y="328" width="146" height="3" rx="1.5" fill="#ff8a3d" opacity="0.5"/></g>
                 <g id="p-lensfront" class="part" filter="url(#softShadow)"><circle cx="140" cy="295" r="64" fill="#0a0b0d"/><circle cx="140" cy="295" r="64" fill="none" stroke="url(#metalRing)" stroke-width="6"/><circle cx="140" cy="295" r="56" fill="#000"/><circle cx="140" cy="295" r="46" fill="url(#lensGrad)"/><circle cx="140" cy="295" r="46" fill="none" stroke="#ffffff" stroke-opacity="0.15" stroke-width="1.5"/><circle cx="140" cy="295" r="34" fill="url(#lensCoreReflect)"/><ellipse cx="120" cy="274" rx="13" ry="6" fill="#ffffff" opacity="0.55" transform="rotate(-30 120 274)"/><circle cx="140" cy="295" r="64" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="2 2"/></g>
-                
                 <g id="p-evf" class="part" filter="url(#softShadow)"><rect x="372" y="196" width="70" height="30" rx="8" fill="url(#evfGrad)"/><rect x="372" y="196" width="70" height="30" rx="8" fill="none" stroke="#000" stroke-opacity="0.4" stroke-width="1.2"/><rect x="382" y="203" width="34" height="16" rx="4" fill="#050608"/><circle cx="424" cy="211" r="6" fill="#1b1c1f"/><circle cx="424" cy="211" r="6" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="1"/></g>
                 <g id="p-hotshoe" class="part" filter="url(#softShadow)"><rect x="388" y="184" width="36" height="16" rx="3" fill="url(#metalGrad)"/><rect x="393" y="187" width="26" height="3.5" fill="#000" opacity="0.35"/><rect x="393" y="194" width="26" height="3" fill="#000" opacity="0.3"/></g>
                 <g id="p-dial" class="part" filter="url(#softShadow)"><circle cx="480" cy="212" r="20" fill="url(#metalRing)"/><circle cx="480" cy="212" r="20" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="1.3"/><g stroke="#000" stroke-opacity="0.3" stroke-width="1.2"><line x1="480" y1="194" x2="480" y2="198"/><line x1="497" y1="203" x2="493" y2="206"/><line x1="497" y1="221" x2="493" y2="218"/><line x1="480" y1="230" x2="480" y2="226"/></g><circle cx="480" cy="212" r="7" fill="#17181b"/></g>
@@ -115,12 +188,9 @@
                 <g id="p-lug-l" class="part" filter="url(#softShadow)"><circle cx="246" cy="228" r="9" fill="none" stroke="url(#metalRing)" stroke-width="4"/><circle cx="246" cy="228" r="3.5" fill="#000" opacity="0.5"/></g>
                 <g id="p-lug-r" class="part" filter="url(#softShadow)"><circle cx="556" cy="228" r="9" fill="none" stroke="url(#metalRing)" stroke-width="4"/><circle cx="556" cy="228" r="3.5" fill="#000" opacity="0.5"/></g>
                 <g id="p-battdoor" class="part" filter="url(#softShadow)"><rect x="470" y="340" width="68" height="30" rx="8" fill="url(#bodyGrad)"/><rect x="470" y="340" width="68" height="30" rx="8" fill="none" stroke="#000" stroke-opacity="0.45" stroke-width="1.2"/><rect x="486" y="352" width="36" height="5" rx="2.5" fill="#000" opacity="0.4"/></g>
-                
                 <g id="p-lcd" class="part" filter="url(#softShadow)"><rect x="248" y="384" width="180" height="112" rx="9" fill="url(#lcdGrad)"/><rect x="248" y="384" width="180" height="112" rx="9" fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="2"/><rect x="248" y="378" width="180" height="7" rx="3.5" fill="#3a3d42"/><rect x="258" y="394" width="160" height="92" rx="4" fill="#0d151c"/><rect x="264" y="400" width="64" height="6" rx="3" fill="#3fa9dc" opacity="0.55"/><rect x="264" y="412" width="38" height="4" rx="2" fill="#ffffff" opacity="0.18"/><circle cx="404" cy="406" r="5" fill="#ff8a3d" opacity="0.85"/><rect x="258" y="394" width="160" height="16" fill="#ffffff" opacity="0.04"/></g>
-                
                 <g id="p-screw1" class="part" filter="url(#softShadow)"><circle cx="260" cy="360" r="4" fill="url(#metalRing)"/><line x1="257" y1="360" x2="263" y2="360" stroke="#000" stroke-opacity="0.6" stroke-width="1"/></g>
                 <g id="p-screw2" class="part" filter="url(#softShadow)"><circle cx="550" cy="360" r="4" fill="url(#metalRing)"/><line x1="547" y1="360" x2="553" y2="360" stroke="#000" stroke-opacity="0.6" stroke-width="1"/></g>
-
                 <g id="reticle" opacity="0">
                     <circle cx="140" cy="295" r="78" fill="url(#glowGrad)"/>
                     <g id="reticleLines" stroke="var(--accent)" stroke-width="2" fill="none" opacity="0.9">
@@ -130,7 +200,6 @@
                         <path d="M 190 344 L 190 324 M 190 344 L 170 344"/>
                     </g>
                 </g>
-
                 <g id="labels">
                     <text class="label" id="lbl-body" x="400" y="212">Chassis</text>
                     <text class="label" id="lbl-lcd" x="290" y="514">Tilt LCD</text>
@@ -146,7 +215,6 @@
                     <text class="label" id="lbl-frontdial" x="500" y="256">Front Dial</text>
                     <text class="label" id="lbl-battdoor" x="500" y="330">Battery Door</text>
                 </g>
-
                 <rect x="0" y="0" width="800" height="560" filter="url(#grain)" opacity="0.5" style="mix-blend-mode:overlay"/>
             </svg>
             <div id="phase-text">Assembled</div>
@@ -157,14 +225,12 @@
     <!-- ======================= MAIN DASHBOARD ======================= -->
     <!-- Wrapped in a container that is hidden initially, and fades in after animation -->
     <div id="dashboard-content" class="hidden opacity-0 transition-opacity duration-700">
-        
         <nav class="bg-slate-800 text-white p-4 flex justify-between items-center shadow-md">
             <h1 class="text-xl font-bold">Obscura Spare Dashboard</h1>
             <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-sm font-semibold">Logout</button>
         </nav>
 
         <div class="max-w-6xl mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-            
             <div class="md:col-span-1 space-y-6">
                 <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                     <h3 id="formTitle" class="text-lg font-bold text-gray-700 mb-4">Add New Spare</h3>
@@ -174,7 +240,6 @@
                             <label class="block text-sm font-medium text-gray-600">Spare Name</label>
                             <input type="text" id="spareName" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
                         </div>
-                        
                         <!-- NEW GRID ADDED HERE -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
@@ -186,7 +251,6 @@
                                 <input type="number" id="spareUsed" min="0" value="0" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
                             </div>
                         </div>
-
                         <div>
                             <div class="flex justify-between items-center mb-1">
                                 <label class="block text-sm font-medium text-gray-600">Barcode / SKU</label>
@@ -197,7 +261,6 @@
                                 <input type="text" id="spareBarcode" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required placeholder="Click here & scan barcode...">
                             </div>
                         </div>
-
                         <!-- Barcode Live Generator Preview & Print -->
                         <div class="bg-gray-50 p-3 rounded border border-dashed border-gray-300 text-center">
                             <div class="flex justify-between items-center mb-2">
@@ -208,12 +271,36 @@
                                 <svg id="barcodePreview"></svg>
                             </div>
                         </div>
-
                         <div class="flex gap-2">
                             <button type="submit" id="saveBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium">Save Spare</button>
                             <button type="button" id="cancelBtn" class="hidden w-full bg-gray-400 hover:bg-gray-500 text-white py-2 rounded font-medium">Cancel</button>
                         </div>
                     </form>
+                </div>
+
+                <!-- Usage Tracker Section -->
+                <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                    <h3 class="text-lg font-bold text-gray-700 mb-4">Track Spare Usage</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600">From Date</label>
+                            <input type="date" id="startDate" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600">To Date (Today)</label>
+                            <input type="date" id="endDate" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <button id="checkUsageBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium">
+                            Check Usage
+                        </button>
+                    </div>
+                    <!-- Results Container -->
+                    <div id="usageResults" class="mt-4 p-3 bg-gray-50 rounded border border-gray-200 hidden">
+                        <h4 class="text-xs font-bold text-gray-500 uppercase mb-2">Usage Report</h4>
+                        <ul id="usageList" class="text-sm divide-y divide-gray-200">
+                            <!-- Filtered results will be injected here via JS -->
+                        </ul>
+                    </div>
                 </div>
             </div>
 
@@ -251,124 +338,122 @@
                     </table>
                 </div>
             </div>
-
         </div>
     </div>
     <!-- End Dashboard Content -->
 
     <!-- ======================= ANIMATION SCRIPT ======================= -->
     <script>
-        (function(){
-            // Check if animation has already played this session to skip it
-            if (sessionStorage.getItem('animationPlayed') === 'true') {
-                return; // Stop the script here so it doesn't run the animation
-            }
+    (function(){
+        // Check if animation has already played this session to skip it
+        if (sessionStorage.getItem('animationPlayed') === 'true') {
+            return; // Stop the script here so it doesn't run the animation
+        }
 
-            const explodeTargets = {
-                'p-body':        {dx:0,   dy:0,    rot:0,   scale:1},
-                'p-lcd':         {dx:-30, dy:210,  rot:8,   scale:1},
-                'p-grip':        {dx:150, dy:30,   rot:14,  scale:1},
-                'p-mount':       {dx:-10, dy:150,  rot:35,  scale:1},
-                'p-lensbarrel':  {dx:-190,dy:40,   rot:-8,  scale:1},
-                'p-lensfront':   {dx:-300,dy:-50,  rot:-20, scale:1},
-                'p-evf':         {dx:-10, dy:-150, rot:10,  scale:1},
-                'p-hotshoe':     {dx:20,  dy:-190, rot:-25, scale:1},
-                'p-dial':        {dx:170, dy:-150, rot:120, scale:1},
-                'p-compdial':    {dx:250, dy:-160, rot:-90, scale:1},
-                'p-shutter':     {dx:260, dy:-110, rot:60,  scale:1},
-                'p-frontdial':   {dx:230, dy:-70,  rot:200, scale:1},
-                'p-lug-l':       {dx:-140,dy:-120, rot:0,   scale:1},
-                'p-lug-r':       {dx:180, dy:-120, rot:0,   scale:1},
-                'p-battdoor':    {dx:220, dy:150,  rot:-30, scale:1},
-                'p-screw1':      {dx:-260,dy:220,  rot:180, scale:1},
-                'p-screw2':      {dx:280, dy:220,  rot:180, scale:1},
-            };
+        const explodeTargets = {
+            'p-body':        {dx:0,   dy:0,    rot:0,   scale:1},
+            'p-lcd':         {dx:-30, dy:210,  rot:8,   scale:1},
+            'p-grip':        {dx:150, dy:30,   rot:14,  scale:1},
+            'p-mount':       {dx:-10, dy:150,  rot:35,  scale:1},
+            'p-lensbarrel':  {dx:-190,dy:40,   rot:-8,  scale:1},
+            'p-lensfront':   {dx:-300,dy:-50,  rot:-20, scale:1},
+            'p-evf':         {dx:-10, dy:-150, rot:10,  scale:1},
+            'p-hotshoe':     {dx:20,  dy:-190, rot:-25, scale:1},
+            'p-dial':        {dx:170, dy:-150, rot:120, scale:1},
+            'p-compdial':    {dx:250, dy:-160, rot:-90, scale:1},
+            'p-shutter':     {dx:260, dy:-110, rot:60,  scale:1},
+            'p-frontdial':   {dx:230, dy:-70,  rot:200, scale:1},
+            'p-lug-l':       {dx:-140,dy:-120, rot:0,   scale:1},
+            'p-lug-r':       {dx:180, dy:-120, rot:0,   scale:1},
+            'p-battdoor':    {dx:220, dy:150,  rot:-30, scale:1},
+            'p-screw1':      {dx:-260,dy:220,  rot:180, scale:1},
+            'p-screw2':      {dx:280, dy:220,  rot:180, scale:1},
+        };
 
-            const ids = Object.keys(explodeTargets);
-            const els = {};
-            ids.forEach(id => els[id] = document.getElementById(id));
-            const reticle = document.getElementById('reticle');
-            const groundShadow = document.getElementById('groundShadow');
-            const phaseText = document.getElementById('phase-text');
-            const progressBar = document.getElementById('progress-bar');
-            const labels = document.querySelectorAll('.label');
+        const ids = Object.keys(explodeTargets);
+        const els = {};
+        ids.forEach(id => els[id] = document.getElementById(id));
 
-            function easeInOutCubic(t){
-                return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
-            }
+        const reticle = document.getElementById('reticle');
+        const groundShadow = document.getElementById('groundShadow');
+        const phaseText = document.getElementById('phase-text');
+        const progressBar = document.getElementById('progress-bar');
+        const labels = document.querySelectorAll('.label');
 
-            function setPart(id, t){
-                const target = explodeTargets[id];
-                els[id].setAttribute('transform', 
-                    `translate(${(target.dx * t).toFixed(2)},${(target.dy * t).toFixed(2)}) rotate(${(target.rot * t).toFixed(2)})`);
-            }
+        function easeInOutCubic(t){ return t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2; }
 
-            function render(t){
-                ids.forEach(id => setPart(id, t));
-                reticle.style.opacity = t.toFixed(3);
-                groundShadow.setAttribute('rx', (235 - 45*t).toFixed(1));
-                groundShadow.setAttribute('opacity', (0.4 - 0.2*t).toFixed(2));
-                labels.forEach(l => l.style.opacity = t > 0.55 ? Math.min(1,(t-0.55)/0.35) : 0);
-            }
+        function setPart(id, t){
+            const target = explodeTargets[id];
+            els[id].setAttribute('transform', `translate(${(target.dx * t).toFixed(2)},${(target.dy * t).toFixed(2)}) rotate(${(target.rot * t).toFixed(2)})`);
+        }
 
-            const HOLD_ASSEMBLED = 1400;
-            const EXPLODE = 2200;
-            const HOLD_EXPLODED = 1600;
-            const REASSEMBLE = 2200;
-            const HOLD_END = 900;
-            const TOTAL = HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED + REASSEMBLE + HOLD_END;
+        function render(t){
+            ids.forEach(id => setPart(id, t));
+            reticle.style.opacity = t.toFixed(3);
+            groundShadow.setAttribute('rx', (235 - 45*t).toFixed(1));
+            groundShadow.setAttribute('opacity', (0.4 - 0.2*t).toFixed(2));
+            labels.forEach(l => l.style.opacity = t > 0.55 ? Math.min(1,(t-0.55)/0.35) : 0);
+        }
 
-            let startTime = null;
+        const HOLD_ASSEMBLED = 1400;
+        const EXPLODE = 2200;
+        const HOLD_EXPLODED = 1600;
+        const REASSEMBLE = 2200;
+        const HOLD_END = 900;
+        const TOTAL = HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED + REASSEMBLE + HOLD_END;
 
-            function frame(now){
-                if(startTime === null) startTime = now;
-                let elapsed = now - startTime;
+        let startTime = null;
 
-                // Transition to dashboard when animation finishes
-                if (elapsed >= TOTAL) {
-                    const intro = document.getElementById('animation-intro');
-                    const dashboard = document.getElementById('dashboard-content');
-                    
-                    intro.style.opacity = '0';
-                    
+        function frame(now){
+            if(startTime === null) startTime = now;
+            let elapsed = now - startTime;
+
+            // Transition to dashboard when animation finishes
+            if (elapsed >= TOTAL) {
+                const intro = document.getElementById('animation-intro');
+                const dashboard = document.getElementById('dashboard-content');
+                intro.style.opacity = '0';
+                setTimeout(() => {
+                    intro.style.display = 'none';
+                    dashboard.classList.remove('hidden');
                     setTimeout(() => {
-                        intro.style.display = 'none';
-                        dashboard.classList.remove('hidden');
-                        setTimeout(() => {
-                            dashboard.classList.remove('opacity-0');
-                            dashboard.classList.add('opacity-100');
-                            // Save to session storage so it doesn't play on refresh
-                            sessionStorage.setItem('animationPlayed', 'true');
-                        }, 50);
-                    }, 600);
-                    return;
-                }
-
-                let t, phase;
-                if(elapsed < HOLD_ASSEMBLED){
-                    t = 0; phase = 'Initializing...';
-                } else if(elapsed < HOLD_ASSEMBLED + EXPLODE){
-                    const p = (elapsed - HOLD_ASSEMBLED) / EXPLODE;
-                    t = easeInOutCubic(p);
-                    phase = 'Disassembling';
-                } else if(elapsed < HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED){
-                    t = 1; phase = 'Verifying Parts';
-                } else if(elapsed < HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED + REASSEMBLE){
-                    const p = (elapsed - HOLD_ASSEMBLED - EXPLODE - HOLD_EXPLODED) / REASSEMBLE;
-                    t = 1 - easeInOutCubic(p);
-                    phase = 'Reassembling';
-                } else {
-                    t = 0; phase = 'Loading Dashboard...';
-                }
-
-                render(t);
-                phaseText.textContent = phase;
-                progressBar.style.width = (elapsed / TOTAL * 100).toFixed(2) + '%';
-                requestAnimationFrame(frame);
+                        dashboard.classList.remove('opacity-0');
+                        dashboard.classList.add('opacity-100');
+                        // Save to session storage so it doesn't play on refresh
+                        sessionStorage.setItem('animationPlayed', 'true');
+                    }, 50);
+                }, 600);
+                return;
             }
 
+            let t, phase;
+            if(elapsed < HOLD_ASSEMBLED){
+                t = 0;
+                phase = 'Initializing...';
+            } else if(elapsed < HOLD_ASSEMBLED + EXPLODE){
+                const p = (elapsed - HOLD_ASSEMBLED) / EXPLODE;
+                t = easeInOutCubic(p);
+                phase = 'Disassembling';
+            } else if(elapsed < HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED){
+                t = 1;
+                phase = 'Verifying Parts';
+            } else if(elapsed < HOLD_ASSEMBLED + EXPLODE + HOLD_EXPLODED + REASSEMBLE){
+                const p = (elapsed - HOLD_ASSEMBLED - EXPLODE - HOLD_EXPLODED) / REASSEMBLE;
+                t = 1 - easeInOutCubic(p);
+                phase = 'Reassembling';
+            } else {
+                t = 0;
+                phase = 'Loading Dashboard...';
+            }
+
+            render(t);
+            phaseText.textContent = phase;
+            progressBar.style.width = (elapsed / TOTAL * 100).toFixed(2) + '%';
             requestAnimationFrame(frame);
-        })();
+        }
+
+        requestAnimationFrame(frame);
+    })();
     </script>
 </body>
 </html>
