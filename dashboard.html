@@ -223,7 +223,6 @@
     </div>
 
     <!-- ======================= MAIN DASHBOARD ======================= -->
-    <!-- Wrapped in a container that is hidden initially, and fades in after animation -->
     <div id="dashboard-content" class="hidden opacity-0 transition-opacity duration-700">
         <nav class="bg-slate-800 text-white p-4 flex justify-between items-center shadow-md">
             <h1 class="text-xl font-bold">Obscura Spare Dashboard</h1>
@@ -240,7 +239,6 @@
                             <label class="block text-sm font-medium text-gray-600">Spare Name</label>
                             <input type="text" id="spareName" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500" required>
                         </div>
-                        <!-- NEW GRID ADDED HERE -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-600">Quantity</label>
@@ -257,7 +255,6 @@
                                 <button type="button" id="generateBarcodeBtn" class="text-xs bg-slate-700 hover:bg-slate-800 text-white px-2 py-1 rounded shadow-sm flex items-center gap-1">Generate SKU</button>
                             </div>
                             <div class="relative">
-                                <!-- Focus here and scan with your hardware gun -->
                                 <input type="text" id="spareBarcode" class="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500" required placeholder="Click here & scan barcode...">
                             </div>
                         </div>
@@ -290,7 +287,7 @@
                             <label class="block text-sm font-medium text-gray-600">To Date (Today)</label>
                             <input type="date" id="endDate" class="w-full mt-1 p-2 border rounded focus:ring-2 focus:ring-blue-500">
                         </div>
-                        <button id="checkUsageBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-medium">
+                        <button id="checkUsageBtn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-medium">
                             Check Usage
                         </button>
                     </div>
@@ -323,7 +320,6 @@
                     </div>
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <!-- NEW USED COLUMN HEADER ADDED HERE -->
                             <tr class="bg-gray-100 text-gray-700 text-sm uppercase">
                                 <th class="p-4">Spare Name</th>
                                 <th class="p-4">Barcode</th>
@@ -340,14 +336,12 @@
             </div>
         </div>
     </div>
-    <!-- End Dashboard Content -->
 
     <!-- ======================= ANIMATION SCRIPT ======================= -->
     <script>
     (function(){
-        // Check if animation has already played this session to skip it
         if (sessionStorage.getItem('animationPlayed') === 'true') {
-            return; // Stop the script here so it doesn't run the animation
+            return;
         }
 
         const explodeTargets = {
@@ -408,7 +402,6 @@
             if(startTime === null) startTime = now;
             let elapsed = now - startTime;
 
-            // Transition to dashboard when animation finishes
             if (elapsed >= TOTAL) {
                 const intro = document.getElementById('animation-intro');
                 const dashboard = document.getElementById('dashboard-content');
@@ -419,7 +412,6 @@
                     setTimeout(() => {
                         dashboard.classList.remove('opacity-0');
                         dashboard.classList.add('opacity-100');
-                        // Save to session storage so it doesn't play on refresh
                         sessionStorage.setItem('animationPlayed', 'true');
                     }, 50);
                 }, 600);
