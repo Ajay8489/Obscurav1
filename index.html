@@ -3,55 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>obscura Spare Inventory - Login</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <title>Spare Inventory - Login</title>
+    <!-- Add your CSS styling here or link your stylesheet -->
+    <style>
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; margin: 0; }
+        .login-container { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; margin-bottom: 0.5rem; }
+        .input-group input { width: 100%; padding: 0.5rem; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+        button { width: 100%; padding: 0.75rem; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
+        button:disabled { background-color: #cccccc; }
+        .hidden { display: none; }
+        #errorMessage { color: red; margin-bottom: 1rem; font-size: 0.9rem; }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="bg-white p-8 rounded-lg shadow-md w-96">
-        <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">obscura Service Inventory</h2>
+<body>
+
+    <div class="login-container">
+        <h2>Spare Inventory Login</h2>
+        
+        <!-- Error Message Container -->
+        <div id="errorMessage" class="hidden"></div>
+
+        <!-- Login Form -->
         <form id="loginForm">
-            <div class="mb-4">
-                <label class="block text-gray-700 text-sm font-bold mb-2">Username</label>
-                <input type="text" id="username" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            <div class="input-group">
+                <label for="username">Email / Username</label>
+                <input type="email" id="username" required placeholder="Enter your email">
             </div>
-            <style>body {
-            background-image: url('Gemini_Generated_Image_xh311dxh311dxh31.png');
-            background-position: center;
-            background-repeat: no-repeat;
-            background-size: cover;
-            background-attachment: fixed;
-        }</style>
-            <div class="mb-6">
-                <label class="block text-gray-700 text-sm font-bold mb-2">Password</label>
-                <input type="password" id="password" class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter your password">
             </div>
-            <button type="submit" id="loginBtn" class="w-full bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition">Login</button>
+
+            <button type="submit" id="loginBtn">Login</button>
         </form>
-        <p id="errorMessage" class="text-red-500 text-sm mt-4 hidden text-center">Invalid username or password.</p>
     </div>
 
-    <!-- Firebase SDK (Modular Version - Aligned to v10.8.0) -->
+    <!-- Firebase Authentication Script -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-        // Your Firebase project credentials
         const firebaseConfig = {
-            apiKey: "AIzaSyDRZgMvYRjpuFlsTyoLTZK_mNuvA7jg4HE",
-            authDomain: "obscura-9bb1a.firebaseapp.com",
-            projectId: "obscura-9bb1a",
-            storageBucket: "obscura-9bb1a.firebasestorage.app",
-            messagingSenderId: "1081657320125",
-            appId: "1:1081657320125:web:d97ca25751b1de71948dd4"
+            apiKey: "AIzaSyBB9ItIgTVpq9KyoyNpCzs-A4kxZ0e55bk",
+            authDomain: "experiment-51058.firebaseapp.com",
+            projectId: "experiment-51058",
+            storageBucket: "experiment-51058.firebasestorage.app",
+            messagingSenderId: "523094266784",
+            appId: "1:523094266784:web:e370716bfbd4a27555cac5",
+            measurementId: "G-SHLW7HC5E4"
         };
 
-        // Initialize Firebase & Firestore
         const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        const auth = getAuth(app);
 
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
             const userInput = document.getElementById('username').value.trim();
             const passInput = document.getElementById('password').value;
             const errorMsg = document.getElementById('errorMessage');
@@ -62,37 +71,13 @@
             loginBtn.textContent = 'Connecting...';
 
             try {
-                // Query only by username to bypass composite index requirements
-                const usersRef = collection(db, "users");
-                const q = query(usersRef, where("username", "==", userInput));
-                const querySnapshot = await getDocs(q);
-
-                if (!querySnapshot.empty) {
-                    let userAuthenticated = false;
-
-                    querySnapshot.forEach((doc) => {
-                        const userData = doc.data();
-                        // Verify password matches database record
-                        if (userData.password === passInput) {
-                            userAuthenticated = true;
-                        }
-                    });
-
-                    if (userAuthenticated) {
-                        localStorage.setItem('isLoggedIn', 'true');
-                        localStorage.setItem('currentUser', userInput);
-                        window.location.href = 'dashboard.html';
-                    } else {
-                        errorMsg.textContent = "Invalid username or password.";
-                        errorMsg.classList.remove('hidden');
-                    }
-                } else {
-                    errorMsg.textContent = "Invalid username or password.";
-                    errorMsg.classList.remove('hidden');
-                }
+                const userCredential = await signInWithEmailAndPassword(auth, userInput, passInput);
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('currentUser', userCredential.user.email);
+                window.location.href = 'dashboard.html';
             } catch (error) {
-                console.error("Database Login Error:", error);
-                errorMsg.textContent = "Database connection error. Check console.";
+                console.error("Login Error:", error);
+                errorMsg.textContent = "Invalid username or password.";
                 errorMsg.classList.remove('hidden');
             } finally {
                 loginBtn.disabled = false;
