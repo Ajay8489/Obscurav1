@@ -4,12 +4,13 @@ import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-    apiKey: "AIzaSyDRZgMvYRjpuFlsTyoLTZK_mNuvA7jg4HE",
-    authDomain: "obscura-9bb1a.firebaseapp.com",
-    projectId: "obscura-9bb1a",
-    storageBucket: "obscura-9bb1a.firebasestorage.app",
-    messagingSenderId: "1081657320125",
-    appId: "1:1081657320125:web:d97ca25751b1de71948dd4"
+    apiKey: "AIzaSyBB9ItIgTVpq9KyoyNpCzs-A4kxZ0e55bk",
+    authDomain: "experiment-51058.firebaseapp.com",
+    projectId: "experiment-51058",
+    storageBucket: "experiment-51058.firebasestorage.app",
+    messagingSenderId: "523094266784",
+    appId: "1:523094266784:web:e370716bfbd4a27555cac5",
+    measurementId: "G-SHLW7HC5E4"
 };
 
 // Initialize Firebase
